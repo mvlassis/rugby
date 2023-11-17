@@ -2,3 +2,7 @@
 gb_core/target
 dissasembler/target
 gameboy-test-roms
+*.gb
+*.txt
+test-roms
+roms
