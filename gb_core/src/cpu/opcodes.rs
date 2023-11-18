@@ -1,3 +1,5 @@
+use std::process;
+
 use super::CPU;
 use crate::mmu::MMU;
 
@@ -15,6 +17,9 @@ impl CPU {
 		lookup_table[0x06] = Some(CPU::opcode_ld_b_n);
 		lookup_table[0x07] = Some(CPU::opcode_rlca);
 		lookup_table[0x08] = Some(CPU::opcode_ld_nn_sp);
+		lookup_table[0x09] = Some(CPU::opcode_add_hl_bc);
+		lookup_table[0x0B] = Some(CPU::opcode_dec_bc);
+		lookup_table[0x0A] = Some(CPU::opcode_ld_a_bc);
 		lookup_table[0x0C] = Some(CPU::opcode_inc_c);
 		lookup_table[0x0D] = Some(CPU::opcode_dec_c);
 		lookup_table[0x0E] = Some(CPU::opcode_ld_c_n);
@@ -25,12 +30,15 @@ impl CPU {
 		lookup_table[0x13] = Some(CPU::opcode_inc_de);
 		lookup_table[0x14] = Some(CPU::opcode_inc_d);
 		lookup_table[0x15] = Some(CPU::opcode_dec_d);
+		lookup_table[0x16] = Some(CPU::opcode_ld_d_n);
 		lookup_table[0x17] = Some(CPU::opcode_rla);
 		lookup_table[0x18] = Some(CPU::opcode_jr_dd);
+		lookup_table[0x19] = Some(CPU::opcode_add_hl_de);
 		lookup_table[0x1A] = Some(CPU::opcode_ld_a_de);
 		lookup_table[0x1B] = Some(CPU::opcode_dec_de);
 		lookup_table[0x1C] = Some(CPU::opcode_inc_e);
 		lookup_table[0x1D] = Some(CPU::opcode_dec_e);
+		lookup_table[0x1E] = Some(CPU::opcode_ld_e_n);
 		lookup_table[0x1F] = Some(CPU::opcode_rra);
 
 		lookup_table[0x20] = Some(CPU::opcode_jr_nz_dd);
@@ -40,9 +48,11 @@ impl CPU {
 		lookup_table[0x24] = Some(CPU::opcode_inc_h);
 		lookup_table[0x25] = Some(CPU::opcode_dec_h);
 		lookup_table[0x26] = Some(CPU::opcode_ld_h_n);
+		lookup_table[0x27] = Some(CPU::opcode_daa);
 		lookup_table[0x28] = Some(CPU::opcode_jr_z_dd);
 		lookup_table[0x29] = Some(CPU::opcode_add_hl_hl);
 		lookup_table[0x2A] = Some(CPU::opcode_ldi_a_hl);
+		lookup_table[0x2B] = Some(CPU::opcode_dec_hl);
 		lookup_table[0x2C] = Some(CPU::opcode_inc_l);
 		lookup_table[0x2D] = Some(CPU::opcode_dec_l);
 		lookup_table[0x2E] = Some(CPU::opcode_ld_l_n);
@@ -51,9 +61,15 @@ impl CPU {
 		lookup_table[0x30] = Some(CPU::opcode_jr_nc_dd);
 		lookup_table[0x31] = Some(CPU::opcode_ld_sp_nn);
 		lookup_table[0x32] = Some(CPU::opcode_ldd_hl_a);
-		lookup_table[0x35] = Some(CPU::opcode_dec_hl);
+		lookup_table[0x33] = Some(CPU::opcode_inc_sp);
+		lookup_table[0x34] = Some(CPU::opcode_inc_m_hl);
+		lookup_table[0x35] = Some(CPU::opcode_dec_m_hl);
+		lookup_table[0x36] = Some(CPU::opcode_ld_hl_n);
 		lookup_table[0x37] = Some(CPU::opcode_scf);
 		lookup_table[0x38] = Some(CPU::opcode_jr_c_dd);
+		lookup_table[0x39] = Some(CPU::opcode_add_hl_sp);
+		lookup_table[0x3B] = Some(CPU::opcode_dec_sp);
+		lookup_table[0x3A] = Some(CPU::opcode_ldd_a_hl);
 		lookup_table[0x3C] = Some(CPU::opcode_inc_a);
 		lookup_table[0x3D] = Some(CPU::opcode_dec_a);
 		lookup_table[0x3E] = Some(CPU::opcode_ld_a_n);
@@ -132,6 +148,7 @@ impl CPU {
 		lookup_table[0x83] = Some(CPU::opcode_add_a_e);
 		lookup_table[0x84] = Some(CPU::opcode_add_a_h);
 		lookup_table[0x85] = Some(CPU::opcode_add_a_l);
+		lookup_table[0x86] = Some(CPU::opcode_add_a_hl);
 		lookup_table[0x87] = Some(CPU::opcode_add_a_a);
 		lookup_table[0x88] = Some(CPU::opcode_adc_a_b);
 		lookup_table[0x89] = Some(CPU::opcode_adc_a_c);
@@ -139,6 +156,7 @@ impl CPU {
 		lookup_table[0x8B] = Some(CPU::opcode_adc_a_e);
 		lookup_table[0x8C] = Some(CPU::opcode_adc_a_h);
 		lookup_table[0x8D] = Some(CPU::opcode_adc_a_l);
+		lookup_table[0x8E] = Some(CPU::opcode_adc_a_hl);
 		lookup_table[0x8F] = Some(CPU::opcode_adc_a_a);
 
 		lookup_table[0x90] = Some(CPU::opcode_sub_a_b);
@@ -147,6 +165,7 @@ impl CPU {
 		lookup_table[0x93] = Some(CPU::opcode_sub_a_e);
 		lookup_table[0x94] = Some(CPU::opcode_sub_a_h);
 		lookup_table[0x95] = Some(CPU::opcode_sub_a_l);
+		lookup_table[0x96] = Some(CPU::opcode_sub_a_hl);
 		lookup_table[0x97] = Some(CPU::opcode_sub_a_a);
 		lookup_table[0x98] = Some(CPU::opcode_sbc_a_b);
 		lookup_table[0x99] = Some(CPU::opcode_sbc_a_c);
@@ -154,6 +173,7 @@ impl CPU {
 		lookup_table[0x9B] = Some(CPU::opcode_sbc_a_e);
 		lookup_table[0x9C] = Some(CPU::opcode_sbc_a_h);
 		lookup_table[0x9D] = Some(CPU::opcode_sbc_a_l);
+		lookup_table[0x9E] = Some(CPU::opcode_sbc_a_hl);
 		lookup_table[0x9F] = Some(CPU::opcode_sbc_a_a);
 
 		lookup_table[0xA0] = Some(CPU::opcode_and_a_b);
@@ -162,6 +182,7 @@ impl CPU {
 		lookup_table[0xA3] = Some(CPU::opcode_and_a_e);
 		lookup_table[0xA4] = Some(CPU::opcode_and_a_h);
 		lookup_table[0xA5] = Some(CPU::opcode_and_a_l);
+		lookup_table[0xA6] = Some(CPU::opcode_and_a_hl);
 		lookup_table[0xA7] = Some(CPU::opcode_and_a_a);
 		lookup_table[0xA8] = Some(CPU::opcode_xor_a_b);
 		lookup_table[0xA9] = Some(CPU::opcode_xor_a_c);
@@ -186,40 +207,64 @@ impl CPU {
 		lookup_table[0xBB] = Some(CPU::opcode_cp_a_e);
 		lookup_table[0xBC] = Some(CPU::opcode_cp_a_h);
 		lookup_table[0xBD] = Some(CPU::opcode_cp_a_l);
+		lookup_table[0xBE] = Some(CPU::opcode_cp_a_hl);
 		lookup_table[0xBF] = Some(CPU::opcode_cp_a_a);
 
+		lookup_table[0xC0] = Some(CPU::opcode_ret_nz);
 		lookup_table[0xC1] = Some(CPU::opcode_pop_bc);
+		lookup_table[0xC2] = Some(CPU::opcode_jp_nz_nn);
 		lookup_table[0xC3] = Some(CPU::opcode_jp_nn);
 		lookup_table[0xC4] = Some(CPU::opcode_call_nz_nn);
 		lookup_table[0xCE] = Some(CPU::opcode_adc_a_n);
 		lookup_table[0xC5] = Some(CPU::opcode_push_bc);
 		lookup_table[0xC6] = Some(CPU::opcode_add_a_n);
+		lookup_table[0xC7] = Some(CPU::opcode_rst_0);
 		lookup_table[0xC8] = Some(CPU::opcode_ret_z);
 		lookup_table[0xC9] = Some(CPU::opcode_ret);
+		lookup_table[0xCA] = Some(CPU::opcode_jp_z_nn);
+		lookup_table[0xCC] = Some(CPU::opcode_call_z_nn);
 		lookup_table[0xCD] = Some(CPU::opcode_call_nn);
+		lookup_table[0xCF] = Some(CPU::opcode_rst_1);
 
 		lookup_table[0xD0] = Some(CPU::opcode_ret_nc);
 		lookup_table[0xD1] = Some(CPU::opcode_pop_de);
+		lookup_table[0xD2] = Some(CPU::opcode_jp_nc_nn);
+		lookup_table[0xD4] = Some(CPU::opcode_call_nc_nn);
 		lookup_table[0xD5] = Some(CPU::opcode_push_de);
 		lookup_table[0xD6] = Some(CPU::opcode_sub_a_n);
+		lookup_table[0xD7] = Some(CPU::opcode_rst_2);
 		lookup_table[0xD8] = Some(CPU::opcode_ret_c);
+		lookup_table[0xD9] = Some(CPU::opcode_reti);
+		lookup_table[0xDA] = Some(CPU::opcode_jp_c_nn);
+		lookup_table[0xDC] = Some(CPU::opcode_call_c_nn);
+		lookup_table[0xDE] = Some(CPU::opcode_sbc_a_n);
+		lookup_table[0xDF] = Some(CPU::opcode_rst_3);
 		
 		lookup_table[0xE0] = Some(CPU::opcode_ldh_n_a);
 		lookup_table[0xE1] = Some(CPU::opcode_pop_hl);
 		lookup_table[0xE2] = Some(CPU::opcode_ldh_c_a);
 		lookup_table[0xE5] = Some(CPU::opcode_push_hl);
 		lookup_table[0xE6] = Some(CPU::opcode_and_a_n);
+		lookup_table[0xE7] = Some(CPU::opcode_rst_4);
 		lookup_table[0xE9] = Some(CPU::opcode_jp_hl);
+		lookup_table[0xE8] = Some(CPU::opcode_add_sp_dd);
 		lookup_table[0xEA] = Some(CPU::opcode_ld_nn_a);
 		lookup_table[0xEE] = Some(CPU::opcode_xor_a_n);
+		lookup_table[0xEF] = Some(CPU::opcode_rst_5);
 		
 		lookup_table[0xF0] = Some(CPU::opcode_ldh_a_n);
 		lookup_table[0xF1] = Some(CPU::opcode_pop_af);
 		lookup_table[0xF2] = Some(CPU::opcode_ldh_a_c);
 		lookup_table[0xF3] = Some(CPU::opcode_di);
 		lookup_table[0xF5] = Some(CPU::opcode_push_af);
+		lookup_table[0xF6] = Some(CPU::opcode_or_a_n);
+		lookup_table[0xF7] = Some(CPU::opcode_rst_6);
+		lookup_table[0xF8] = Some(CPU::opcode_lds_hl_sp);
+		lookup_table[0xF9] = Some(CPU::opcode_ld_sp_hl);
 		lookup_table[0xFA] = Some(CPU::opcode_ld_a_nn);
+		lookup_table[0xFB] = Some(CPU::opcode_ei);
 		lookup_table[0xFE] = Some(CPU::opcode_cp_a_n);
+		lookup_table[0xFF] = Some(CPU::opcode_rst_7);
 		self.lookup_table = lookup_table;
 
 		let mut lookup_table2: [Option<fn(&mut CPU, &mut MMU)>; 256] = [None; 256];
@@ -229,6 +274,7 @@ impl CPU {
 		lookup_table2[0x03] = Some(CPU::opcode_rlc_e);
 		lookup_table2[0x04] = Some(CPU::opcode_rlc_h);
 		lookup_table2[0x05] = Some(CPU::opcode_rlc_l);
+		lookup_table2[0x06] = Some(CPU::opcode_rlc_m_hl);
 		lookup_table2[0x07] = Some(CPU::opcode_rlc_a);
 		lookup_table2[0x08] = Some(CPU::opcode_rrc_b);
 		lookup_table2[0x09] = Some(CPU::opcode_rrc_c);
@@ -236,6 +282,7 @@ impl CPU {
 		lookup_table2[0x0B] = Some(CPU::opcode_rrc_e);
 		lookup_table2[0x0C] = Some(CPU::opcode_rrc_h);
 		lookup_table2[0x0D] = Some(CPU::opcode_rrc_l);
+		lookup_table2[0x0E] = Some(CPU::opcode_rrc_hl);
 		lookup_table2[0x0F] = Some(CPU::opcode_rrc_a);
 
 		lookup_table2[0x10] = Some(CPU::opcode_rl_b);
@@ -244,6 +291,7 @@ impl CPU {
 		lookup_table2[0x13] = Some(CPU::opcode_rl_e);
 		lookup_table2[0x14] = Some(CPU::opcode_rl_h);
 		lookup_table2[0x15] = Some(CPU::opcode_rl_l);
+		lookup_table2[0x16] = Some(CPU::opcode_rl_hl);
 		lookup_table2[0x17] = Some(CPU::opcode_rl_a);
 		lookup_table2[0x18] = Some(CPU::opcode_rr_b);
 		lookup_table2[0x19] = Some(CPU::opcode_rr_c);
@@ -251,6 +299,7 @@ impl CPU {
 		lookup_table2[0x1B] = Some(CPU::opcode_rr_e);
 		lookup_table2[0x1C] = Some(CPU::opcode_rr_h);
 		lookup_table2[0x1D] = Some(CPU::opcode_rr_l);
+		lookup_table2[0x1E] = Some(CPU::opcode_rr_hl);
 		lookup_table2[0x1F] = Some(CPU::opcode_rr_a);
 
 		lookup_table2[0x20] = Some(CPU::opcode_sla_b);
@@ -259,6 +308,7 @@ impl CPU {
 		lookup_table2[0x23] = Some(CPU::opcode_sla_e);
 		lookup_table2[0x24] = Some(CPU::opcode_sla_h);
 		lookup_table2[0x25] = Some(CPU::opcode_sla_l);
+		lookup_table2[0x26] = Some(CPU::opcode_sla_hl);
 		lookup_table2[0x27] = Some(CPU::opcode_sla_a);
 		lookup_table2[0x28] = Some(CPU::opcode_sra_b);
 		lookup_table2[0x29] = Some(CPU::opcode_sra_c);
@@ -266,6 +316,7 @@ impl CPU {
 		lookup_table2[0x2B] = Some(CPU::opcode_sra_e);
 		lookup_table2[0x2C] = Some(CPU::opcode_sra_h);
 		lookup_table2[0x2D] = Some(CPU::opcode_sra_l);
+		lookup_table2[0x2E] = Some(CPU::opcode_sra_hl);
 		lookup_table2[0x2F] = Some(CPU::opcode_sra_a);
 
 		lookup_table2[0x30] = Some(CPU::opcode_swap_b);
@@ -274,6 +325,7 @@ impl CPU {
 		lookup_table2[0x33] = Some(CPU::opcode_swap_e);
 		lookup_table2[0x34] = Some(CPU::opcode_swap_h);
 		lookup_table2[0x35] = Some(CPU::opcode_swap_l);
+		lookup_table2[0x36] = Some(CPU::opcode_swap_hl);
 		lookup_table2[0x37] = Some(CPU::opcode_swap_a);
 		lookup_table2[0x38] = Some(CPU::opcode_srl_b);
 		lookup_table2[0x39] = Some(CPU::opcode_srl_c);
@@ -281,8 +333,213 @@ impl CPU {
 		lookup_table2[0x3B] = Some(CPU::opcode_srl_e);
 		lookup_table2[0x3C] = Some(CPU::opcode_srl_h);
 		lookup_table2[0x3D] = Some(CPU::opcode_srl_l);
+		lookup_table2[0x3E] = Some(CPU::opcode_srl_hl);
 		lookup_table2[0x3F] = Some(CPU::opcode_srl_a);
-		
+
+		lookup_table2[0x40] = Some(CPU::opcode_bit_0_b);
+		lookup_table2[0x41] = Some(CPU::opcode_bit_0_c);
+		lookup_table2[0x42] = Some(CPU::opcode_bit_0_d);
+		lookup_table2[0x43] = Some(CPU::opcode_bit_0_e);
+		lookup_table2[0x44] = Some(CPU::opcode_bit_0_h);
+		lookup_table2[0x45] = Some(CPU::opcode_bit_0_l);
+		lookup_table2[0x46] = Some(CPU::opcode_bit_0_hl);
+		lookup_table2[0x47] = Some(CPU::opcode_bit_0_a);
+		lookup_table2[0x48] = Some(CPU::opcode_bit_1_b);
+		lookup_table2[0x49] = Some(CPU::opcode_bit_1_c);
+		lookup_table2[0x4A] = Some(CPU::opcode_bit_1_d);
+		lookup_table2[0x4B] = Some(CPU::opcode_bit_1_e);
+		lookup_table2[0x4C] = Some(CPU::opcode_bit_1_h);
+		lookup_table2[0x4D] = Some(CPU::opcode_bit_1_l);
+		lookup_table2[0x4E] = Some(CPU::opcode_bit_1_hl);
+		lookup_table2[0x4F] = Some(CPU::opcode_bit_1_a);
+
+		lookup_table2[0x50] = Some(CPU::opcode_bit_2_b);
+		lookup_table2[0x51] = Some(CPU::opcode_bit_2_c);
+		lookup_table2[0x52] = Some(CPU::opcode_bit_2_d);
+		lookup_table2[0x53] = Some(CPU::opcode_bit_2_e);
+		lookup_table2[0x54] = Some(CPU::opcode_bit_2_h);
+		lookup_table2[0x55] = Some(CPU::opcode_bit_2_l);
+		lookup_table2[0x56] = Some(CPU::opcode_bit_2_hl);
+		lookup_table2[0x57] = Some(CPU::opcode_bit_2_a);
+		lookup_table2[0x58] = Some(CPU::opcode_bit_3_b);
+		lookup_table2[0x59] = Some(CPU::opcode_bit_3_c);
+		lookup_table2[0x5A] = Some(CPU::opcode_bit_3_d);
+		lookup_table2[0x5B] = Some(CPU::opcode_bit_3_e);
+		lookup_table2[0x5C] = Some(CPU::opcode_bit_3_h);
+		lookup_table2[0x5D] = Some(CPU::opcode_bit_3_l);
+		lookup_table2[0x5E] = Some(CPU::opcode_bit_3_hl);
+		lookup_table2[0x5F] = Some(CPU::opcode_bit_3_a);
+
+		lookup_table2[0x60] = Some(CPU::opcode_bit_4_b);
+		lookup_table2[0x61] = Some(CPU::opcode_bit_4_c);
+		lookup_table2[0x62] = Some(CPU::opcode_bit_4_d);
+		lookup_table2[0x63] = Some(CPU::opcode_bit_4_e);
+		lookup_table2[0x64] = Some(CPU::opcode_bit_4_h);
+		lookup_table2[0x65] = Some(CPU::opcode_bit_4_l);
+		lookup_table2[0x66] = Some(CPU::opcode_bit_4_hl);
+		lookup_table2[0x67] = Some(CPU::opcode_bit_4_a);
+		lookup_table2[0x68] = Some(CPU::opcode_bit_5_b);
+		lookup_table2[0x69] = Some(CPU::opcode_bit_5_c);
+		lookup_table2[0x6A] = Some(CPU::opcode_bit_5_d);
+		lookup_table2[0x6B] = Some(CPU::opcode_bit_5_e);
+		lookup_table2[0x6C] = Some(CPU::opcode_bit_5_h);
+		lookup_table2[0x6D] = Some(CPU::opcode_bit_5_l);
+		lookup_table2[0x6E] = Some(CPU::opcode_bit_5_hl);
+		lookup_table2[0x6F] = Some(CPU::opcode_bit_5_a);
+
+		lookup_table2[0x70] = Some(CPU::opcode_bit_6_b);
+		lookup_table2[0x71] = Some(CPU::opcode_bit_6_c);
+		lookup_table2[0x72] = Some(CPU::opcode_bit_6_d);
+		lookup_table2[0x73] = Some(CPU::opcode_bit_6_e);
+		lookup_table2[0x74] = Some(CPU::opcode_bit_6_h);
+		lookup_table2[0x75] = Some(CPU::opcode_bit_6_l);
+		lookup_table2[0x76] = Some(CPU::opcode_bit_6_hl);
+		lookup_table2[0x77] = Some(CPU::opcode_bit_6_a);
+		lookup_table2[0x78] = Some(CPU::opcode_bit_7_b);
+		lookup_table2[0x79] = Some(CPU::opcode_bit_7_c);
+		lookup_table2[0x7A] = Some(CPU::opcode_bit_7_d);
+		lookup_table2[0x7B] = Some(CPU::opcode_bit_7_e);
+		lookup_table2[0x7C] = Some(CPU::opcode_bit_7_h);
+		lookup_table2[0x7D] = Some(CPU::opcode_bit_7_l);
+		lookup_table2[0x7E] = Some(CPU::opcode_bit_7_hl);
+		lookup_table2[0x7F] = Some(CPU::opcode_bit_7_a);
+			
+		lookup_table2[0x80] = Some(CPU::opcode_res_0_b);
+		lookup_table2[0x81] = Some(CPU::opcode_res_0_c);
+		lookup_table2[0x82] = Some(CPU::opcode_res_0_d);
+		lookup_table2[0x83] = Some(CPU::opcode_res_0_e);
+		lookup_table2[0x84] = Some(CPU::opcode_res_0_h);
+		lookup_table2[0x85] = Some(CPU::opcode_res_0_l);
+		lookup_table2[0x86] = Some(CPU::opcode_res_0_hl);
+		lookup_table2[0x87] = Some(CPU::opcode_res_0_a);
+		lookup_table2[0x88] = Some(CPU::opcode_res_1_b);
+		lookup_table2[0x89] = Some(CPU::opcode_res_1_c);
+		lookup_table2[0x8A] = Some(CPU::opcode_res_1_d);
+		lookup_table2[0x8B] = Some(CPU::opcode_res_1_e);
+		lookup_table2[0x8C] = Some(CPU::opcode_res_1_h);
+		lookup_table2[0x8D] = Some(CPU::opcode_res_1_l);
+		lookup_table2[0x8E] = Some(CPU::opcode_res_1_hl);
+		lookup_table2[0x8F] = Some(CPU::opcode_res_1_a);
+
+		lookup_table2[0x90] = Some(CPU::opcode_res_2_b);
+		lookup_table2[0x91] = Some(CPU::opcode_res_2_c);
+		lookup_table2[0x92] = Some(CPU::opcode_res_2_d);
+		lookup_table2[0x93] = Some(CPU::opcode_res_2_e);
+		lookup_table2[0x94] = Some(CPU::opcode_res_2_h);
+		lookup_table2[0x95] = Some(CPU::opcode_res_2_l);
+		lookup_table2[0x96] = Some(CPU::opcode_res_2_hl);
+		lookup_table2[0x97] = Some(CPU::opcode_res_2_a);
+		lookup_table2[0x98] = Some(CPU::opcode_res_3_b);
+		lookup_table2[0x99] = Some(CPU::opcode_res_3_c);
+		lookup_table2[0x9A] = Some(CPU::opcode_res_3_d);
+		lookup_table2[0x9B] = Some(CPU::opcode_res_3_e);
+		lookup_table2[0x9C] = Some(CPU::opcode_res_3_h);
+		lookup_table2[0x9D] = Some(CPU::opcode_res_3_l);
+		lookup_table2[0x9E] = Some(CPU::opcode_res_3_hl);
+		lookup_table2[0x9F] = Some(CPU::opcode_res_3_a);
+
+		lookup_table2[0xA0] = Some(CPU::opcode_res_4_b);
+		lookup_table2[0xA1] = Some(CPU::opcode_res_4_c);
+		lookup_table2[0xA2] = Some(CPU::opcode_res_4_d);
+		lookup_table2[0xA3] = Some(CPU::opcode_res_4_e);
+		lookup_table2[0xA4] = Some(CPU::opcode_res_4_h);
+		lookup_table2[0xA5] = Some(CPU::opcode_res_4_l);
+		lookup_table2[0xA6] = Some(CPU::opcode_res_4_hl);
+		lookup_table2[0xA7] = Some(CPU::opcode_res_4_a);
+		lookup_table2[0xA8] = Some(CPU::opcode_res_5_b);
+		lookup_table2[0xA9] = Some(CPU::opcode_res_5_c);
+		lookup_table2[0xAA] = Some(CPU::opcode_res_5_d);
+		lookup_table2[0xAB] = Some(CPU::opcode_res_5_e);
+		lookup_table2[0xAC] = Some(CPU::opcode_res_5_h);
+		lookup_table2[0xAD] = Some(CPU::opcode_res_5_l);
+		lookup_table2[0xAE] = Some(CPU::opcode_res_5_hl);
+		lookup_table2[0xAF] = Some(CPU::opcode_res_5_a);
+
+		lookup_table2[0xB0] = Some(CPU::opcode_res_6_b);
+		lookup_table2[0xB1] = Some(CPU::opcode_res_6_c);
+		lookup_table2[0xB2] = Some(CPU::opcode_res_6_d);
+		lookup_table2[0xB3] = Some(CPU::opcode_res_6_e);
+		lookup_table2[0xB4] = Some(CPU::opcode_res_6_h);
+		lookup_table2[0xB5] = Some(CPU::opcode_res_6_l);
+		lookup_table2[0xB6] = Some(CPU::opcode_res_6_hl);
+		lookup_table2[0xB7] = Some(CPU::opcode_res_6_a);
+		lookup_table2[0xB8] = Some(CPU::opcode_res_7_b);
+		lookup_table2[0xB9] = Some(CPU::opcode_res_7_c);
+		lookup_table2[0xBA] = Some(CPU::opcode_res_7_d);
+		lookup_table2[0xBB] = Some(CPU::opcode_res_7_e);
+		lookup_table2[0xBC] = Some(CPU::opcode_res_7_h);
+		lookup_table2[0xBD] = Some(CPU::opcode_res_7_l);
+		lookup_table2[0xBE] = Some(CPU::opcode_res_7_hl);
+		lookup_table2[0xBF] = Some(CPU::opcode_res_7_a);
+
+		lookup_table2[0xC0] = Some(CPU::opcode_set_0_b);
+		lookup_table2[0xC1] = Some(CPU::opcode_set_0_c);
+		lookup_table2[0xC2] = Some(CPU::opcode_set_0_d);
+		lookup_table2[0xC3] = Some(CPU::opcode_set_0_e);
+		lookup_table2[0xC4] = Some(CPU::opcode_set_0_h);
+		lookup_table2[0xC5] = Some(CPU::opcode_set_0_l);
+		lookup_table2[0xC6] = Some(CPU::opcode_set_0_hl);
+		lookup_table2[0xC7] = Some(CPU::opcode_set_0_a);
+		lookup_table2[0xC8] = Some(CPU::opcode_set_1_b);
+		lookup_table2[0xC9] = Some(CPU::opcode_set_1_c);
+		lookup_table2[0xCA] = Some(CPU::opcode_set_1_d);
+		lookup_table2[0xCB] = Some(CPU::opcode_set_1_e);
+		lookup_table2[0xCC] = Some(CPU::opcode_set_1_h);
+		lookup_table2[0xCD] = Some(CPU::opcode_set_1_l);
+		lookup_table2[0xCE] = Some(CPU::opcode_set_1_hl);
+		lookup_table2[0xCF] = Some(CPU::opcode_set_1_a);
+
+		lookup_table2[0xD0] = Some(CPU::opcode_set_2_b);
+		lookup_table2[0xD1] = Some(CPU::opcode_set_2_c);
+		lookup_table2[0xD2] = Some(CPU::opcode_set_2_d);
+		lookup_table2[0xD3] = Some(CPU::opcode_set_2_e);
+		lookup_table2[0xD4] = Some(CPU::opcode_set_2_h);
+		lookup_table2[0xD5] = Some(CPU::opcode_set_2_l);
+		lookup_table2[0xD6] = Some(CPU::opcode_set_2_hl);
+		lookup_table2[0xD7] = Some(CPU::opcode_set_2_a);
+		lookup_table2[0xD8] = Some(CPU::opcode_set_3_b);
+		lookup_table2[0xD9] = Some(CPU::opcode_set_3_c);
+		lookup_table2[0xDA] = Some(CPU::opcode_set_3_d);
+		lookup_table2[0xDB] = Some(CPU::opcode_set_3_e);
+		lookup_table2[0xDC] = Some(CPU::opcode_set_3_h);
+		lookup_table2[0xDD] = Some(CPU::opcode_set_3_l);
+		lookup_table2[0xDE] = Some(CPU::opcode_set_3_hl);
+		lookup_table2[0xDF] = Some(CPU::opcode_set_3_a);
+
+		lookup_table2[0xE0] = Some(CPU::opcode_set_4_b);
+		lookup_table2[0xE1] = Some(CPU::opcode_set_4_c);
+		lookup_table2[0xE2] = Some(CPU::opcode_set_4_d);
+		lookup_table2[0xE3] = Some(CPU::opcode_set_4_e);
+		lookup_table2[0xE4] = Some(CPU::opcode_set_4_h);
+		lookup_table2[0xE5] = Some(CPU::opcode_set_4_l);
+		lookup_table2[0xE6] = Some(CPU::opcode_set_4_hl);
+		lookup_table2[0xE7] = Some(CPU::opcode_set_4_a);
+		lookup_table2[0xE8] = Some(CPU::opcode_set_5_b);
+		lookup_table2[0xE9] = Some(CPU::opcode_set_5_c);
+		lookup_table2[0xEA] = Some(CPU::opcode_set_5_d);
+		lookup_table2[0xEB] = Some(CPU::opcode_set_5_e);
+		lookup_table2[0xEC] = Some(CPU::opcode_set_5_h);
+		lookup_table2[0xED] = Some(CPU::opcode_set_5_l);
+		lookup_table2[0xEE] = Some(CPU::opcode_set_5_hl);
+		lookup_table2[0xEF] = Some(CPU::opcode_set_5_a);
+
+		lookup_table2[0xF0] = Some(CPU::opcode_set_6_b);
+		lookup_table2[0xF1] = Some(CPU::opcode_set_6_c);
+		lookup_table2[0xF2] = Some(CPU::opcode_set_6_d);
+		lookup_table2[0xF3] = Some(CPU::opcode_set_6_e);
+		lookup_table2[0xF4] = Some(CPU::opcode_set_6_h);
+		lookup_table2[0xF5] = Some(CPU::opcode_set_6_l);
+		lookup_table2[0xF6] = Some(CPU::opcode_set_6_hl);
+		lookup_table2[0xF7] = Some(CPU::opcode_set_6_a);
+		lookup_table2[0xF8] = Some(CPU::opcode_set_7_b);
+		lookup_table2[0xF9] = Some(CPU::opcode_set_7_c);
+		lookup_table2[0xFA] = Some(CPU::opcode_set_7_d);
+		lookup_table2[0xFB] = Some(CPU::opcode_set_7_e);
+		lookup_table2[0xFC] = Some(CPU::opcode_set_7_h);
+		lookup_table2[0xFD] = Some(CPU::opcode_set_7_l);
+		lookup_table2[0xFE] = Some(CPU::opcode_set_7_hl);
+		lookup_table2[0xFF] = Some(CPU::opcode_set_7_a);
+
 		self.lookup_table2 = lookup_table2;
 	}
 	
@@ -406,19 +663,19 @@ impl CPU {
 		self.cpu_registers[dest_register] = n;
 		self.mcycles = 2;
 	}
-	// LD a, n
+	// LD A, n
 	fn opcode_ld_a_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'A');}
-	// LD b, n
+	// LD B, n
 	fn opcode_ld_b_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'B');}
-	// LD c, n
+	// LD C, n
 	fn opcode_ld_c_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'C');}
-	// LD d, n
+	// LD D, n
 	fn opcode_ld_d_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'D');}
-	// LD e, n
+	// LD E, n
 	fn opcode_ld_e_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'E');}
-	// LD h, n
+	// LD H, n
 	fn opcode_ld_h_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'H');}
-	// LD l, n
+	// LD L, n
 	fn opcode_ld_l_n(&mut self, mmu: &mut MMU) {self.opcode_ld_r_n(mmu, 'L');}
 
 	// LD r, m: Load register from memory pointed to by double register
@@ -428,6 +685,8 @@ impl CPU {
 		self.cpu_registers[r_reg] = mmu.get_byte(mem);
 		self.mcycles = 2;
 	}
+	// LD A, (BC)
+	fn opcode_ld_a_bc(&mut self, mmu: &mut MMU) {self.opcode_ld_r_m(mmu, 'A', "BC");}
 	// LD A, (DE)
 	fn opcode_ld_a_de(&mut self, mmu: &mut MMU) {self.opcode_ld_r_m(mmu, 'A', "DE");}
 	// LD A, (HL)
@@ -471,18 +730,21 @@ impl CPU {
 	// LD (HL), L
 	fn opcode_ld_hl_l(&mut self, mmu: &mut MMU) {self.opcode_ld_m_r(mmu, "HL", 'L');}
 
-	// // LD m, n: Load memory pointed by double register from immediate
-	// fn opcode_ld_mn(&mut self, double_reg: &str, n: u8) {
-	// 	let mem = self.double_register_value(double_reg);
-	// 	self.memory[mem] = n;
-	// }
+	// LD m, n: Load memory pointed by double register from immediate
+	fn opcode_ld_m_n(&mut self, mmu: &mut MMU, double_reg: &str) {
+		let n = self.fetch_byte(mmu);
+		let mem = self.double_register_value(double_reg);
+		mmu.set_byte(mem, n);
+		self.mcycles = 3;
+	}
+	// LD (HL), n
+	fn opcode_ld_hl_n(&mut self, mmu: &mut MMU) {self.opcode_ld_m_n(mmu, "HL");}
 
 	// Load r, nn: Load register from memory pointed by 16-bit immediate
 	fn opcode_ld_r_nn(&mut self, mmu: &mut MMU, r: char) {
 		let nn = self.fetch_word(mmu);
 		let dest_register = self.r_index(r);
 		self.cpu_registers[dest_register] = mmu.get_byte(nn);
-
 		self.mcycles = 4;
 	}
 	// LD A, nn
@@ -595,30 +857,32 @@ impl CPU {
 	// LDD HL, A
 	fn opcode_ldd_hl_a(&mut self, mmu: &mut MMU) {self.opcode_ldd_m_r(mmu, "HL", 'A');}
 
-	// // LoadDecrement r, m: Load register from memory pointed by double register,
-	// // then decrement double register
-	// fn opcode_ldd_rm(&mut self, r: char, double_reg: &str) {
-	// 	let dest_register = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	self.cpu_registers[dest_register] = self.memory[mem];
-	// 	self.set_double_register(double_reg, (mem-1) as u16);
-	// }
+	// LoadDecrement r, m: Load register from memory pointed by double register,
+	// then decrement double register
+	fn opcode_ldd_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let dest_register = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		self.cpu_registers[dest_register] = mmu.get_byte(mem);
+		self.set_double_register(double_reg, (mem-1) as u16);
+		self.mcycles = 2;
+	}
+	// LDD A, HL
+	fn opcode_ldd_a_hl(&mut self, mmu: &mut MMU) {self.opcode_ldd_r_m(mmu, 'A', "HL")}
 
 	// LD rr, nn: Load double register from 16-bit immediate
-	fn opcode_ld_rrnn(&mut self, mmu: &mut MMU, double_reg: &str) {
+	fn opcode_ld_rr_nn(&mut self, mmu: &mut MMU, double_reg: &str) {
 		let nn = self.fetch_word(mmu);
 		self.set_double_register(double_reg, nn);
-
 		self.mcycles = 3;
 	}
 	// LD BC, nn 
-	fn opcode_ld_bc_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rrnn(mmu, "BC");}
+	fn opcode_ld_bc_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rr_nn(mmu, "BC");}
 	// LD DE, nn 
-	fn opcode_ld_de_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rrnn(mmu, "DE");}
+	fn opcode_ld_de_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rr_nn(mmu, "DE");}
 	// LD HL, nn
-	fn opcode_ld_hl_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rrnn(mmu, "HL");}
+	fn opcode_ld_hl_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rr_nn(mmu, "HL");}
 	// LD SP, nn 
-	fn opcode_ld_sp_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rrnn(mmu, "SP");}
+	fn opcode_ld_sp_nn(&mut self, mmu: &mut MMU) {self.opcode_ld_rr_nn(mmu, "SP");}
 
 	// Load nn, rr: Load double to memory pointed from double register
 	fn opcode_ld_nn_rr(&mut self, mmu: &mut MMU, double_reg: &str) {
@@ -631,11 +895,14 @@ impl CPU {
 	// LD (a16), SP
 	fn opcode_ld_nn_sp(&mut self, mmu: &mut MMU) {self.opcode_ld_nn_rr(mmu, "SP");}
 
-	// // Load rr, rr': Load double register from double register
-	// fn opcode_ld_rrrr(&mut self, double_reg1: &str, double_reg2: &str) {
-	// 	let value = self.double_register_value(double_reg2);
-	// 	self.set_double_register(double_reg1, value as u16);
-	// }
+	// Load rr, rr': Load double register from double register
+	fn opcode_ld_rr_rr(&mut self, _mmu: &mut MMU, double_reg1: &str, double_reg2: &str) {
+		let value = self.double_register_value(double_reg2);
+		self.set_double_register(double_reg1, value as u16);
+		self.mcycles = 2;
+	}
+	// LD SP, HL
+	fn opcode_ld_sp_hl(&mut self, mmu: &mut MMU) {self.opcode_ld_rr_rr(mmu, "SP", "HL");}
 
 	// Push rr: Push the value of a double register to the stack
 	fn opcode_push_rr(&mut self, mmu: &mut MMU, double_reg: &str) {
@@ -654,7 +921,11 @@ impl CPU {
 
 	// Pop rr: Pop the stack and store its value in a double register
 	fn opcode_pop_rr(&mut self, mmu: &mut MMU, double_reg: &str) {
-		let value = self.pop_stack(mmu);
+		let mut value = self.pop_stack(mmu);
+		// The first 4 bits of F must be set to 0 
+		if double_reg == "AF" {
+			value &= 0xFFF0;
+		}
 		self.set_double_register(double_reg, value);
 		self.mcycles = 3;
 	}
@@ -730,26 +1001,32 @@ impl CPU {
 	}
 	fn opcode_add_a_n(&mut self, mmu: &mut MMU) {self.opcode_add_r_n(mmu, 'A');}
 
-	// // Add r, m : Add from memory pointed by dobule register to register
-	// fn opcode_add_rm(&mut self, r: char, double_reg: &str) {
-	// 	let r_reg = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let (result, overflow) = self.cpu_registers[r_reg].overflowing_add(self.memory[mem]);
-	// 	self.cpu_registers[r_reg] = result;
-	// 	let hc = (((self.cpu_registers[r_reg] & 0xF) + (self.memory[mem] & 0xF)) & 0x10) >> 4;
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', hc);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+	// Add r, m : Add from memory pointed by dobule register to register
+	fn opcode_add_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let r_reg = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		let a = self.cpu_registers[r_reg];
+		let b = mmu.get_byte(mem);
+		let (result, overflow) = a.overflowing_add(b);
+		let hc = (((a & 0xF) + (b & 0xF)) & 0x10) >> 4;
+		
+		self.cpu_registers[r_reg] = result;
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', hc);
+		if overflow == true {
+			self.set_flag('c', 1);
+		} else {
+			self.set_flag('c', 0);
+		}
+		self.mcycles = 2;
+	}
+	// ADD A, (HL)
+	fn opcode_add_a_hl(&mut self, mmu: &mut MMU) {self.opcode_add_r_m(mmu, 'A', "HL");}
 
 	// Adc r, r: Add with carry from register to register
 	fn opcode_adc_r_r(&mut self, _mmu: &mut MMU, r1: char, r2: char) {
@@ -821,31 +1098,34 @@ impl CPU {
 	fn opcode_adc_a_n(&mut self, mmu: &mut MMU) {self.opcode_adc_r_n(mmu, 'A');}
 	
 
-	// // Adc r, m: Add with carry from memory to register
-	// fn opcode_adc_rm(&mut self, r: char, double_reg: &str) {
-	// 	let r_reg = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let a = self.cpu_registers[r_reg];
-	// 	let b = self.memory[mem];
-	// 	let carry = self.get_flag('c');
-	// 	let (result1, overflow1) = a.overflowing_add(b);
-	// 	let (result2, overflow2) = result1.overflowing_add(carry);
-	// 	self.cpu_registers[r_reg] = result2;
-	// 	let hc = (((a & 0xF) + (b & 0xF) + (carry & 0xF)) & 0x10) >> 4;
+	// Adc r, m: Add with carry from memory to register
+	fn opcode_adc_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let r_reg = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		let a = self.cpu_registers[r_reg];
+		let b = mmu.get_byte(mem);
+		let carry = self.get_flag('c');
+		let (result1, overflow1) = a.overflowing_add(b);
+		let (result2, overflow2) = result1.overflowing_add(carry);
+		let hc = (((a & 0xF) + (b & 0xF) + (carry & 0xF)) & 0x10) >> 4;
 
-	// 	if result2 == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', hc);
-	// 	if overflow1 == true || overflow2 == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		self.cpu_registers[r_reg] = result2;
+		if result2 == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', hc);
+		if overflow1 == true || overflow2 == true {
+			self.set_flag('c', 1);
+		} else {
+			self.set_flag('c', 0);
+		}
+		self.mcycles = 2;
+	}
+	// ADC A, (HL)
+	fn opcode_adc_a_hl(&mut self, mmu: &mut MMU) {self.opcode_adc_r_m(mmu, 'A', "HL");}
 
 	// SUB r, r: Subtract register from register
 	fn opcode_sub_r_r(&mut self, _mmu: &mut MMU, r1: char, r2: char) {
@@ -911,26 +1191,32 @@ impl CPU {
 	// SUB A, n
 	fn opcode_sub_a_n(&mut self, mmu: &mut MMU) {self.opcode_sub_r_n(mmu, 'A');}
 
-	// // SUB r, m : Subtract value pointed by dobule register from register
-	// fn opcode_sub_rm(&mut self, r: char, double_reg: &str) {
-	// 	let r_reg = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let (result, overflow) = self.cpu_registers[r_reg].overflowing_sub(self.memory[mem]);
-	// 	self.cpu_registers[r_reg] = result;
-	// 	let hc = (((self.cpu_registers[r_reg] & 0xF) - (self.memory[mem] & 0xF)) & 0x10) >> 4;
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 1);
-	// 	self.set_flag('h', hc);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+	// SUB r, m : Subtract value pointed by dobule register from register
+	fn opcode_sub_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let r_reg = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		let a = self.cpu_registers[r_reg];
+		let b = mmu.get_byte(mem);
+		let (result, overflow) = a.overflowing_sub(b);
+		let hc = (((a & 0xF).wrapping_sub(b & 0xF)) & 0x10) >> 4;
+				  
+		self.cpu_registers[r_reg] = result;
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 1);
+		self.set_flag('h', hc);
+		if overflow == true {
+			self.set_flag('c', 1);
+		} else {
+			self.set_flag('c', 0);
+		}
+		self.mcycles = 2;
+	}
+	// SUB A, (HL)
+	fn opcode_sub_a_hl(&mut self, mmu: &mut MMU) {self.opcode_sub_r_m(mmu, 'A', "HL");}
 
 	// SBC r, r: Subtract with carry, register from register
 	fn opcode_sbc_r_r(&mut self, _mmu: &mut MMU, r1: char, r2: char) {
@@ -973,55 +1259,63 @@ impl CPU {
 	// SBC A, L
 	fn opcode_sbc_a_l(&mut self, mmu: &mut MMU) {self.opcode_sbc_r_r(mmu, 'A', 'L');}
 
-	// // SBC r, n: Subtract with carry immediate from register
-	// fn opcode_sbc_rn(&mut self, r: char, n: u8) {
-	// 	let r_reg = self.r_index(r);
-	// 	let a = self.cpu_registers[r_reg];
-	// 	let carry = self.get_flag('c');
-	// 	let (result1, overflow1) = a.overflowing_sub(n);
-	// 	let (result2, overflow2) = result1.overflowing_sub(carry);
-	// 	self.cpu_registers[r_reg] = result2;
-	// 	let hc = (((a & 0xF) - (n & 0xF) - (carry & 0xF)) & 0x10) >> 4;
+	// SBC r, n: Subtract with carry immediate from register
+	fn opcode_sbc_r_n(&mut self, mmu: &mut MMU, r: char) {
+		let n = self.fetch_byte(mmu);
+		let r_reg = self.r_index(r);
+		let a = self.cpu_registers[r_reg];
+		let carry = self.get_flag('c');
+		let (result1, overflow1) = a.overflowing_sub(n);
+		let (result2, overflow2) = result1.overflowing_sub(carry);
+		let hc = (((a & 0xF).wrapping_sub(n & 0xF).wrapping_sub(carry & 0xF)) & 0x10) >> 4;
+		self.cpu_registers[r_reg] = result2;
 
-	// 	if result2 == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 1);
-	// 	self.set_flag('h', hc);
-	// 	if overflow1 == true || overflow2 == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		if result2 == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 1);
+		self.set_flag('h', hc);
+		if overflow1 == true || overflow2 == true {
+			self.set_flag('c', 1);
+		} else {
+			self.set_flag('c', 0);
+		}
+		self.mcycles = 2;
+	}
+	// SBC A, n
+	fn opcode_sbc_a_n(&mut self, mmu: &mut MMU) {self.opcode_sbc_r_n(mmu, 'A');}
 
-	// // SBC r, m: Subtract with carry, memory from register
-	// fn opcode_sbc_rm(&mut self, r: char, double_reg: &str) {
-	// 	let r_reg = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let a = self.cpu_registers[r_reg];
-	// 	let b = self.memory[mem];
-	// 	let carry = self.get_flag('c');
-	// 	let (result1, overflow1) = a.overflowing_sub(b);
-	// 	let (result2, overflow2) = result1.overflowing_sub(carry);
-	// 	self.cpu_registers[r_reg] = result2;
-	// 	let hc = (((a & 0xF) - (b & 0xF) - (carry & 0xF)) & 0x10) >> 4;
+	// SBC r, m: Subtract with carry, memory from register
+	fn opcode_sbc_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let r_reg = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		let a = self.cpu_registers[r_reg];
+		let b = mmu.get_byte(mem);
+		let carry = self.get_flag('c');
+		let (result1, overflow1) = a.overflowing_sub(b);
+		let (result2, overflow2) = result1.overflowing_sub(carry);
+		let hc = (((a & 0xF).wrapping_sub(b & 0xF).wrapping_sub(carry & 0xF)) & 0x10) >> 4;
 
-	// 	if result2 == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 1);
-	// 	self.set_flag('h', hc);
-	// 	if overflow1 == true || overflow2 == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		self.cpu_registers[r_reg] = result2;
+		if result2 == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 1);
+		self.set_flag('h', hc);
+		if overflow1 == true || overflow2 == true {
+			self.set_flag('c', 1);
+		} else {
+			self.set_flag('c', 0);
+		}
+		self.mcycles = 2;
+	}
+	// SBC A, (HL)
+	fn opcode_sbc_a_hl(&mut self, mmu: &mut MMU) {self.opcode_sbc_r_m(mmu, 'A', "HL");}
+
 
 	// AND r, r: AND register with register
 	fn opcode_and_r_r(&mut self, _mmu: &mut MMU, r1: char, r2: char) {
@@ -1073,21 +1367,23 @@ impl CPU {
 	// AND A, n
 	fn opcode_and_a_n(&mut self, mmu: &mut MMU) {self.opcode_and_r_n(mmu, 'A');}
 
-	// // AND r, m: AND register with memory pointed by double register
-	// fn opcode_and_rm(&mut self, r: char, double_reg: &str) {
-	// 	let r_reg = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let result = self.cpu_registers[r_reg] & self.memory[mem];
-	// 	self.cpu_registers[r_reg] = result;
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 1);
-	// 	self.set_flag('c', 0);
-	// }
+	// AND r, m: AND register with memory pointed by double register
+	fn opcode_and_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let r_reg = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		let result = self.cpu_registers[r_reg] & mmu.get_byte(mem);
+		self.cpu_registers[r_reg] = result;
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 1);
+		self.set_flag('c', 0);
+	}
+	// AND A, (HL)
+	fn opcode_and_a_hl(&mut self, mmu: &mut MMU) {self.opcode_and_r_m(mmu, 'A', "HL");}
 
 	// XOR r, r: XOR register with register
 	fn opcode_xor_r_r(&mut self, _mmu: &mut MMU, r1: char, r2: char) {
@@ -1190,20 +1486,24 @@ impl CPU {
 	// OR A, L
 	fn opcode_or_a_l(&mut self, mmu: &mut MMU) {self.opcode_or_r_r(mmu, 'A', 'L');}
 
-	// // OR r, n: OR register with immediate
-	// fn opcode_or_rn(&mut self, r: char, n: u8) {
-	// 	let r_reg = self.r_index(r);
-	// 	let result = self.cpu_registers[r_reg] | n;
-	// 	self.cpu_registers[r_reg] = result;
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	self.set_flag('c', 0);
-	// }
+	// OR r, n: OR register with immediate
+	fn opcode_or_r_n(&mut self, mmu: &mut MMU, r: char) {
+		let n = self.fetch_byte(mmu);
+		let r_reg = self.r_index(r);
+		let result = self.cpu_registers[r_reg] | n;
+		self.cpu_registers[r_reg] = result;
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', 0);
+		self.mcycles = 2;
+	}
+	// OR A, n
+	fn opcode_or_a_n(&mut self, mmu: &mut MMU) {self.opcode_or_r_n(mmu, 'A');}
 
 	// OR r, m: OR register with memory pointed by double register
 	fn opcode_or_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
@@ -1286,25 +1586,32 @@ impl CPU {
 	// CP A, n
 	fn opcode_cp_a_n(&mut self, mmu: &mut MMU) {self.opcode_cp_r_n(mmu, 'A');}
 
-	// // CP r, m : Compare register with value pointed by double register
-	// fn opcode_cp_rm(&mut self, r: char, double_reg: &str) {
-	// 	let r_reg = self.r_index(r);
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let (result, overflow) = self.cpu_registers[r_reg].overflowing_sub(self.memory[mem]);
-	// 	let hc = (((self.cpu_registers[r_reg] & 0xF) - (self.memory[mem] & 0xF)) & 0x10) >> 4;
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 1);
-	// 	self.set_flag('h', hc);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+	// CP r, m : Compare register with value pointed by double register
+	fn opcode_cp_r_m(&mut self, mmu: &mut MMU, r: char, double_reg: &str) {
+		let r_reg = self.r_index(r);
+		let mem = self.double_register_value(double_reg);
+		let a = self.cpu_registers[r_reg];
+		let b = mmu.get_byte(mem);
+		let (result, overflow) = a.overflowing_sub(b);
+		let hc = (((a & 0xF).wrapping_sub(b & 0xF)) & 0x10) >> 4;
+	
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 1);
+		self.set_flag('h', hc);
+		if overflow == true {
+			self.set_flag('c', 1);
+		} else {
+			self.set_flag('c', 0);
+		}
+	self.mcycles = 2;
+	}
+	// CP A, (HL)
+	fn opcode_cp_a_hl(&mut self, mmu: &mut MMU) {self.opcode_cp_r_m(mmu, 'A', "HL");}
+
 
 	// INC r: Increment register
 	fn opcode_inc_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1331,21 +1638,24 @@ impl CPU {
 	fn opcode_inc_l(&mut self, mmu: &mut MMU) {self.opcode_inc_r(mmu, 'L');}
 	
 
-	// // INC m: Increment memory pointed by double register
-	// fn opcode_inc_rm(&mut self, double_reg: &str) {
-	// 	let mem = self.double_register_value(double_reg);
-	// 	let (result, _) = self.memory[mem].overflowing_add(1);
-	// 	self.memory[mem] = result;
+	// INC m: Increment memory pointed by double register
+	fn opcode_inc_m_rr(&mut self, mmu: &mut MMU, double_reg: &str) {
+		let mem = self.double_register_value(double_reg);
+		let result = mmu.get_byte(mem).wrapping_add(1);
+		let hc = (((mmu.get_byte(mem) & 0xF) + (1 & 0xF)) & 0x10) >> 4;
 		
-	// 	let hc = (((self.memory[mem] & 0xF) + (1 & 0xF)) & 0x10) >> 4;
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', hc);
-	// }
+		mmu.set_byte(mem, result);
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', hc);
+		self.mcycles = 3;
+	}
+	// INC (HL)
+	fn opcode_inc_m_hl(&mut self, mmu: &mut MMU) {self.opcode_inc_m_rr(mmu, "HL");}
 
 	// DEC r: Decrement register
 	fn opcode_dec_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1395,38 +1705,43 @@ impl CPU {
 		self.mcycles = 3;
 	}
 	// DEC (HL)
-	fn opcode_dec_hl(&mut self, mmu: &mut MMU) {self.opcode_dec_m(mmu, "HL");}
+	fn opcode_dec_m_hl(&mut self, mmu: &mut MMU) {self.opcode_dec_m(mmu, "HL");}
 		
 
-	// // DAA r: Decimal adjust register
-	// fn opcode_daa_r(&mut self, r: char) {
-	// 	let r_idx = self.r_index(r);
-	// 	let value = self.cpu_registers[r_idx];
-	// 	let mut low_nibble = value & 0xF;
-	// 	if low_nibble > 9 {
-	// 		low_nibble = (low_nibble + 6) % 16;
-	// 	}
-	// 	let mut high_nibble = value & 0xF0;
-	// 	let mut overflow = false;
-	// 	if (high_nibble >> 4) > 9 {
-	// 		(high_nibble, overflow) = high_nibble.overflowing_add(6 * 16);
-	// 	}
+	// DA r: Decimal adjust register
+	fn opcode_da_r(&mut self, _mmu: &mut MMU, r: char) {
+		let r_idx = self.r_index(r);
+		let mut adjusted_value = self.cpu_registers[r_idx];
+		if self.get_flag('n') == 0 {
+			if self.get_flag('c') == 1 || adjusted_value > 0x99 {
+				adjusted_value = adjusted_value.wrapping_add(0x60);
+				self.set_flag('c', 1);
+			}
+			if self.get_flag('h') == 1 || adjusted_value & 0xF > 9 {
+				adjusted_value = adjusted_value.wrapping_add(0x06);
+			}
+		}
+		else if self.get_flag('n') == 1 {
+			if self.get_flag('c') == 1 {
+				adjusted_value = adjusted_value.wrapping_sub(0x60);
+			}
+			if self.get_flag('h') == 1 {
+				adjusted_value = adjusted_value.wrapping_sub(0x06);
+			}
+		}
+		
+		self.cpu_registers[r_idx] = adjusted_value;
 
-	// 	let adjusted_value = high_nibble | low_nibble;
-	// 	self.cpu_registers[r_idx] = adjusted_value;
-
-	// 	if adjusted_value == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('h', 0);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		if adjusted_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('h', 0);
+		self.mcycles = 1;
+	}
+	// DAA
+	fn opcode_daa(&mut self, mmu: &mut MMU) {self.opcode_da_r(mmu, 'A');}
 
 	// CPL r: Complement register
 	fn opcode_cpl_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1459,8 +1774,14 @@ impl CPU {
 		}
 		self.mcycles = 2;
 	}
+	// ADD HL, BC
+	fn opcode_add_hl_bc(&mut self, mmu: &mut MMU) {self.opcode_add_rr_rr(mmu, "HL", "BC");}
+	// ADD HL, BC
+	fn opcode_add_hl_de(&mut self, mmu: &mut MMU) {self.opcode_add_rr_rr(mmu, "HL", "DE");}
 	// ADD HL, HL
 	fn opcode_add_hl_hl(&mut self, mmu: &mut MMU) {self.opcode_add_rr_rr(mmu, "HL", "HL");}
+	// ADD HL, SP
+	fn opcode_add_hl_sp(&mut self, mmu: &mut MMU) {self.opcode_add_rr_rr(mmu, "HL", "SP");}
 
 	// INC rr: Increment value of double register
 	fn opcode_inc_rr(&mut self, _mmu: &mut MMU, dreg_str: &str) {
@@ -1475,67 +1796,65 @@ impl CPU {
 	fn opcode_inc_de(&mut self, mmu: &mut MMU) {self.opcode_inc_rr(mmu, "DE");}
 	// INC HL
 	fn opcode_inc_hl(&mut self, mmu: &mut MMU) {self.opcode_inc_rr(mmu, "HL");}
+	// INC SP
+	fn opcode_inc_sp(&mut self, mmu: &mut MMU) {self.opcode_inc_rr(mmu, "SP");}
 
 	// DEC rr: Decrement value of double register
 	fn opcode_dec_rr(&mut self, _mmu: &mut MMU, dreg_str: &str) {
 		let dreg_val = self.double_register_value(dreg_str);
 		let result = dreg_val.wrapping_sub(1);
 		self.set_double_register(dreg_str, result as u16);
-		self.mcycles = 1;
+		self.mcycles = 2;
 	}
+	// DEC BC
+	fn opcode_dec_bc(&mut self, mmu: &mut MMU) {self.opcode_dec_rr(mmu, "BC");}
 	// DEC DE
 	fn opcode_dec_de(&mut self, mmu: &mut MMU) {self.opcode_dec_rr(mmu, "DE");}
+	// DEC HL
+	fn opcode_dec_hl(&mut self, mmu: &mut MMU) {self.opcode_dec_rr(mmu, "HL");}
+	// DEC SP
+	fn opcode_dec_sp(&mut self, mmu: &mut MMU) {self.opcode_dec_rr(mmu, "SP");}
 
-	// // ADDS m, dd: Add signed 8-bit to double register
-	// fn opcode_adds(&mut self, dreg_str: &str, dd: u8) {
-	// 	let dreg_val = self.double_register_value(dreg_str);
-	// 	let signed_value = dd as i8;
-	// 	let (result, _) = dreg_val.overflowing_add_signed(signed_value as isize);
-	// 	self.set_double_register(dreg_str, result as u16);
+	// ADD rr, dd: Add signed 8-bit to double register
+	fn opcode_add_rr_dd(&mut self, mmu: &mut MMU, dreg_str: &str) {
+		let dd = self.fetch_byte(mmu);
+		let dreg_val = self.double_register_value(dreg_str);
+		let signed_value = dd as i8;
+		let result = dreg_val.wrapping_add_signed(signed_value as i16);
+		self.set_double_register(dreg_str, result as u16);
 
-	// 	let hc = if signed_value > 0 {
-	// 		(((dreg_val & 0xF) + (dd as usize & 0xF)) & 0x10) >> 4
-	// 	} else {
-	// 		(((dreg_val & 0xF) - (signed_value.abs() as usize & 0xF)) & 0x10) >> 4
-	// 	};
-
-	// 	let fc = if signed_value > 0 {
-	// 		(((dreg_val & 0xFF) + (dd as usize & 0xFF)) & 0x100) >> 8
-	// 	} else {
-	// 		(((dreg_val & 0xFF) - (signed_value.abs() as usize & 0xFF)) & 0x100) >> 8
-	// 	};
+		let hc = ((dreg_val & 0xF) + (dd as u16 & 0xF) & 0x10) >> 4;
+		let (_, fc) = (dreg_val as u8).overflowing_add(dd);
 		
-	// 	self.set_flag('z', 0);
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', hc as u8);
-	// 	self.set_flag('c', fc as u8);
-	// }
+		self.set_flag('z', 0);
+		self.set_flag('n', 0);
+		self.set_flag('h', hc as u8);
+		self.set_flag('c', fc as u8);
+		self.mcycles = 4;
+	}
+	// ADD SP, dd
+	fn opcode_add_sp_dd(&mut self, mmu: &mut MMU) {self.opcode_add_rr_dd(mmu, "SP");}
 	
-	// // LDS m, m, dd: Add signed 8-bit to double register, then store the result in memory
-	// // pointed by double-register
-	// fn opcode_lds(&mut self, dreg_str1: &str, dreg_str2: &str, dd: u8) {
-	// 	let dreg_val1 = self.double_register_value(dreg_str1);
-	// 	let signed_value = dd as i8;
-	// 	let (result, _) = dreg_val1.overflowing_add_signed(signed_value as isize);
-	// 	self.set_double_register(dreg_str2, result as u16);
+	// LDS RR, RR, dd: Add signed 8-bit to double register, then store the result in memory
+	// pointed by double-register
+	fn opcode_lds(&mut self, mmu: &mut MMU, dreg_str1: &str, dreg_str2: &str) {
+		let dd = self.fetch_byte(mmu);
+		let dreg_val = self.double_register_value(dreg_str2);
+		let signed_value = dd as i8;
+		let result = dreg_val.wrapping_add_signed(signed_value as i16);
+		self.set_double_register(dreg_str1, result as u16);
 
-	// 	let hc = if signed_value > 0 {
-	// 		(((dreg_val1 & 0xF) + (dd as usize & 0xF)) & 0x10) >> 4
-	// 	} else {
-	// 		(((dreg_val1 & 0xF) - (signed_value.abs() as usize & 0xF)) & 0x10) >> 4
-	// 	};
-
-	// 	let fc = if signed_value > 0 {
-	// 		(((dreg_val1 & 0xFF) + (dd as usize & 0xFF)) & 0x100) >> 8
-	// 	} else {
-	// 		(((dreg_val1 & 0xFF) - (signed_value.abs() as usize & 0xFF)) & 0x100) >> 8
-	// 	};
+		let hc = ((dreg_val & 0xF) + (dd as u16 & 0xF) & 0x10) >> 4;
+		let (_, fc) = (dreg_val as u8).overflowing_add(dd);
 		
-	// 	self.set_flag('z', 0);
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', hc as u8);
-	// 	self.set_flag('c', fc as u8);
-	// }
+		self.set_flag('z', 0);
+		self.set_flag('n', 0);
+		self.set_flag('h', hc as u8);
+		self.set_flag('c', fc as u8);
+		self.mcycles = 4;
+	}
+	// LD HL, SP+dd
+	fn opcode_lds_hl_sp(&mut self, mmu: &mut MMU) {self.opcode_lds(mmu, "HL", "SP");}
 
 	// RLCA: Rotate A left
 	fn opcode_rlca(&mut self, _mmu: &mut MMU) {
@@ -1629,22 +1948,25 @@ impl CPU {
 	// RLC L
 	fn opcode_rlc_l(&mut self, mmu: &mut MMU) {self.opcode_rlc_r(mmu, 'L');}
 
-	// // RLC m: Rotate m left
-	// fn opcode_rlc_m(&mut self, dreg_str: &str) {
-	// 	let mem = self.double_register_value(dreg_str);
-	// 	let c = (self.memory[mem] & 0x80) >> 7;
-	// 	let new_value = self.memory[mem].rotate_left(1);
-	// 	self.memory[mem] = new_value;
+	// RLC m: Rotate m left
+	fn opcode_rlc_m(&mut self, mmu: &mut MMU, dreg_str: &str) {
+		let mem = self.double_register_value(dreg_str);
+		let bit7 = (mmu.get_byte(mem) & 0x80) >> 7;
+		let new_value = mmu.get_byte(mem).rotate_left(1);
+		mmu.set_byte(mem, new_value);
 		
-	// 	if new_value == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	self.set_flag('c', c);
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit7);
+		self.mcycles = 4;
+	}
+	// RLC (HL)
+	fn opcode_rlc_m_hl(&mut self, mmu: &mut MMU) {self.opcode_rlc_m(mmu, "HL");}
 
 	// RL r: Rotate r left through carry
 	fn opcode_rl_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1681,23 +2003,31 @@ impl CPU {
 	fn opcode_rl_l(&mut self, mmu: &mut MMU) {self.opcode_rl_r(mmu, 'L');}
 		
 
-	// // RL m: Rotate m left through carry
-	// fn opcode_rl_m(&mut self, dreg_str: &str) {
-	// 	let mem = self.double_register_value(dreg_str);
-	// 	let c = (self.memory[mem] & 0x80) >> 7;
-	// 	let mut new_value = self.memory[mem].rotate_left(1);
-	// 	new_value |= c;
-	// 	self.memory[mem] = new_value;
+	// RL m: Rotate m left through carry
+	fn opcode_rl_m(&mut self, mmu: &mut MMU, dreg_str: &str) {
+		let c_flag = self.get_flag('c');
+		let mem = self.double_register_value(dreg_str);
+		let bit7 = (mmu.get_byte(mem) & 0x80) >> 7;
+		let mut new_value = mmu.get_byte(mem).rotate_left(1);
+		if c_flag == 0 {
+			new_value &= 0b1111_1110;
+		} else {
+			new_value |= 1;
+		}
+		mmu.set_byte(mem, new_value);
 		
-	// 	if new_value == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	self.set_flag('c', c);
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit7);
+		self.mcycles = 4;
+	}
+	// RL (HL)
+	fn opcode_rl_hl(&mut self, mmu: &mut MMU) {self.opcode_rl_m(mmu, "HL");}
 
 	// RRC r: Rotate register right 
 	fn opcode_rrc_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1732,22 +2062,25 @@ impl CPU {
 	// RRC L
 	fn opcode_rrc_l(&mut self, mmu: &mut MMU) {self.opcode_rrc_r(mmu, 'L');}
 
-	// // RRC m: Rotate memory right
-	// fn opcode_rrc_m(&mut self, dreg_str: &str) {
-	// 	let mem = self.double_register_value(dreg_str);
-	// 	let c = self.memory[mem] & 0x01;
-	// 	let new_value = self.memory[mem].rotate_right(1);
-	// 	self.memory[mem] = new_value;
+	// RRC m: Rotate memory right
+	fn opcode_rrc_m(&mut self, mmu: &mut MMU, dreg_str: &str) {
+		let mem = self.double_register_value(dreg_str);
+		let bit0 = mmu.get_byte(mem) & 0x01;
+		let new_value = mmu.get_byte(mem).rotate_right(1);
+		mmu.set_byte(mem, new_value);
 		
-	// 	if new_value == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	self.set_flag('c', c);
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit0);
+		self.mcycles = 4;
+	}
+	// RRC (HL)
+	fn opcode_rrc_hl(&mut self, mmu: &mut MMU) {self.opcode_rrc_m(mmu, "HL");}
 
 	// RR r: Rotate register right through carry
 	fn opcode_rr_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1789,23 +2122,31 @@ impl CPU {
 	// RR L
 	fn opcode_rr_l(&mut self, mmu: &mut MMU) {self.opcode_rr_r(mmu, 'L');}
 
-	// // RR m: Rotate memory right through carry
-	// fn opcode_rr_m(&mut self, dreg_str: &str) {
-	// 	let mem = self.double_register_value(dreg_str);
-	// 	let c = self.memory[mem] & 0x01;
-	// 	let mut new_value = self.memory[mem].rotate_right(1);
-	// 	new_value |= c << 7;
-	// 	self.memory[mem] = new_value;
+	// RR m: Rotate memory right through carry
+	fn opcode_rr_m(&mut self, mmu: &mut MMU, dreg_str: &str) {
+		let c_flag = self.get_flag('c');
+		let mem = self.double_register_value(dreg_str);
+		let bit0 = mmu.get_byte(mem) & 0x01;
+		let mut new_value = mmu.get_byte(mem).rotate_right(1);
+		if c_flag == 0 {
+			new_value &= !(1 << 7);
+		} else {
+			new_value |= 1 << 7;
+		}
+		mmu.set_byte(mem, new_value);
 		
-	// 	if new_value == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	self.set_flag('c', c);
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit0);
+		self.mcycles = 4;
+	}
+	// RR (HL)
+	fn opcode_rr_hl(&mut self, mmu: &mut MMU) {self.opcode_rr_m(mmu, "HL");}
 
 	// SLA r: Shift left register
 	fn opcode_sla_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1839,24 +2180,25 @@ impl CPU {
 	// SLA L
 	fn opcode_sla_l(&mut self, mmu: &mut MMU) {self.opcode_sla_r(mmu, 'L');}
 
-	// // SLA m: Shift left memory pointed by double register
-	// fn opcode_sla_m(&mut self, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	let (result, overflow) = self.memory[mem].overflowing_shl(1);
+	// SLA m: Shift left memory pointed by double register
+	fn opcode_sla_m(&mut self, mmu: &mut MMU, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let bit7 = (mmu.get_byte(mem) & 0x80) >> 7;
+		let result = mmu.get_byte(mem) << 1;
+		mmu.set_byte(mem, result);
 		
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		if result == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit7);
+		self.mcycles = 4;
+	}
+	// SLA (HL)
+	fn opcode_sla_hl(&mut self, mmu: &mut MMU) {self.opcode_sla_m(mmu, "HL");}
 
 	// SWAP r: Swap nibbles of register
 	fn opcode_swap_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1892,24 +2234,27 @@ impl CPU {
 	// SWAP L
 	fn opcode_swap_l(&mut self, mmu: &mut MMU) {self.opcode_swap_r(mmu, 'L');}
 
-	// // SWAP m: Swap nibbles of memory pointed by double register
-	// fn opcode_swap_m(&mut self, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	let value = self.memory[mem];
-	// 	let low_nibble = value & 0xF;
-	// 	let high_nibble = value & 0xF0;
-	// 	let new_value = (low_nibble << 4) | high_nibble;
-	// 	self.memory[mem] = new_value;
+	// SWAP m: Swap nibbles of memory pointed by double register
+	fn opcode_swap_m(&mut self, mmu: &mut MMU, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let value = mmu.get_byte(mem);
+		let low_nibble = value & 0xF;
+		let high_nibble = value & 0xF0;
+		let new_value = (low_nibble << 4) | (high_nibble >> 4);
+		mmu.set_byte(mem, new_value);
 
-	// 	if new_value == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	self.set_flag('c', 0);
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', 0);
+		self.mcycles = 4;
+	}
+	// SWAP (HL)
+	fn opcode_swap_hl(&mut self, mmu: &mut MMU) {self.opcode_swap_m(mmu, "HL");}
 
 	// SRA r: Shift right arithmetic register (b7 = b7)
 	fn opcode_sra_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -1949,27 +2294,31 @@ impl CPU {
 	// SRA L
 	fn opcode_sra_l(&mut self, mmu: &mut MMU) {self.opcode_sra_r(mmu, 'L');}
 
-	// // SRA m: Shift right arithmetic memory pointed by double register (b7 = b7)
-	// fn opcode_sra_m(&mut self, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	let bit7 = self.memory[mem] & 0x80;
-	// 	let (mut result, overflow) = self.memory[mem].overflowing_shr(1);
-	// 	result |= bit7;
-	// TODO ADD = result;
+	// SRA m: Shift right arithmetic memory pointed by double register (b7 = b7)
+	fn opcode_sra_m(&mut self, mmu: &mut MMU, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let bit0 = mmu.get_byte(mem) & 0x01;
+		let bit7 = (mmu.get_byte(mem) & 0x80) >> 7;
+		let mut new_value = mmu.get_byte(mem) >> 1;
+		if bit7 == 0 {
+			new_value &= !(1 << 7);
+		} else {
+			new_value |= 1 << 7;
+		}
+		mmu.set_byte(mem, new_value);
 		
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit0);
+		self.mcycles = 4;
+	}
+	// SRA (HL)
+	fn opcode_sra_hl(&mut self, mmu: &mut MMU) {self.opcode_sra_m(mmu, "HL");}
 
 	// SRL r: Shift right logical register (b7 = 0)
 	fn opcode_srl_r(&mut self, _mmu: &mut MMU, r: char) {
@@ -2007,76 +2356,489 @@ impl CPU {
 	// SRL L
 	fn opcode_srl_l(&mut self, mmu: &mut MMU) {self.opcode_srl_r(mmu, 'L');}
 
-	// // SRL m: Shift right logical memory pointed by double register (b7 = 0)
-	// fn opcode_srl_m(&mut self, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	let (result, overflow) = self.memory[mem].overflowing_shr(1);
+	// SRL m: Shift right logical memory pointed by double register (b7 = 0)
+	fn opcode_srl_m(&mut self, mmu: &mut MMU, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let bit0 = mmu.get_byte(mem) & 0x01;
+		let new_value = mmu.get_byte(mem) >> 1;
+		mmu.set_byte(mem, new_value);
 		
-	// 	if result == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 0);
-	// 	if overflow == true {
-	// 		self.set_flag('c', 1);
-	// 	} else {
-	// 		self.set_flag('c', 0);
-	// 	}
-	// }
+		if new_value == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 0);
+		self.set_flag('c', bit0);
+		self.mcycles = 4;
+	}
+	// SRL (HL)
+	fn opcode_srl_hl(&mut self, mmu: &mut MMU) {self.opcode_srl_m(mmu, "HL");}
 
-	// // BIT n, r: Test bit n in register r
-	// fn opcode_bit_nr(&mut self, n: u8, r: char) {
-	// 	let r_idx = self.r_index(r);
-	// 	let bit = (self.cpu_registers[r_idx] >> n) & 0x1;
+	// BIT n, r: Test bit n in register r
+	fn opcode_bit_n_r(&mut self, _mmu: &mut MMU, n: u8, r: char) {
+		let r_idx = self.r_index(r);
+		let bit = (self.cpu_registers[r_idx] >> n) & 0x1;
 
-	// 	if bit == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 1);
-	// }
+		if bit == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 1);
+		self.mcycles = 2;
+	}
+	// BIT 0, A
+	fn opcode_bit_0_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'A');}
+	// BIT 0, B
+	fn opcode_bit_0_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'B');}
+	// BIT 0, C
+	fn opcode_bit_0_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'C');}
+	// BIT 0, D
+	fn opcode_bit_0_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'D');}
+	// BIT 0, E
+	fn opcode_bit_0_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'E');}
+	// BIT 0, H
+	fn opcode_bit_0_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'H');}
+	// BIT 0, L
+	fn opcode_bit_0_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 0, 'L');}
 
-	// // BIT n, m: Test bit n in memory pointed by double register
-	// fn opcode_bit_nm(&mut self, n: u8, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	let bit = (self.memory[mem] >> n) & 0x1;
+	// BIT 1, A
+	fn opcode_bit_1_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'A');}
+	// BIT 1, B
+	fn opcode_bit_1_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'B');}
+	// BIT 1, C
+	fn opcode_bit_1_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'C');}
+	// BIT 1, D
+	fn opcode_bit_1_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'D');}
+	// BIT 1, E
+	fn opcode_bit_1_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'E');}
+	// BIT 1, H
+	fn opcode_bit_1_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'H');}
+	// BIT 1, L
+	fn opcode_bit_1_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 1, 'L');}
 
-	// 	if bit == 0 {
-	// 		self.set_flag('z', 1);
-	// 	} else {
-	// 		self.set_flag('z', 0);
-	// 	}
-	// 	self.set_flag('n', 0);
-	// 	self.set_flag('h', 1);
-	// }
+	// BIT 2, A
+	fn opcode_bit_2_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'A');}
+	// BIT 2, B
+	fn opcode_bit_2_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'B');}
+	// BIT 2, C
+	fn opcode_bit_2_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'C');}
+	// BIT 2, D
+	fn opcode_bit_2_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'D');}
+	// BIT 2, E
+	fn opcode_bit_2_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'E');}
+	// BIT 2, H
+	fn opcode_bit_2_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'H');}
+	// BIT 2, L
+	fn opcode_bit_2_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 2, 'L');}
 
-	// // Set n, r: Set bit n in register
-	// fn opcode_set_nr(&mut self, n: u8, r: char) {
-	// 	let r_idx = self.r_index(r);
-	// 	self.cpu_registers[r_idx] |= 1 << n;
-	// }
+	// BIT 3, A
+	fn opcode_bit_3_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'A');}
+	// BIT 3, B
+	fn opcode_bit_3_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'B');}
+	// BIT 3, C
+	fn opcode_bit_3_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'C');}
+	// BIT 3, D
+	fn opcode_bit_3_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'D');}
+	// BIT 3, E
+	fn opcode_bit_3_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'E');}
+	// BIT 3, H
+	fn opcode_bit_3_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'H');}
+	// BIT 3, L
+	fn opcode_bit_3_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 3, 'L');}
 
-	// // Set n, m: Set bit n in memory pointed by double register
-	// fn opcode_set_nm(&mut self, n: u8, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	self.memory[mem] |= 1 << n;
-	// }
+	// BIT 4, A
+	fn opcode_bit_4_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'A');}
+	// BIT 4, B
+	fn opcode_bit_4_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'B');}
+	// BIT 4, C
+	fn opcode_bit_4_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'C');}
+	// BIT 4, D
+	fn opcode_bit_4_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'D');}
+	// BIT 4, E
+	fn opcode_bit_4_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'E');}
+	// BIT 4, H
+	fn opcode_bit_4_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'H');}
+	// BIT 4, L
+	fn opcode_bit_4_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 4, 'L');}
 
-	// // Res n, r: Reset bit n in register
-	// fn opcode_res_nr(&mut self, n: u8, r: char) {
-	// 	let r_idx = self.r_index(r);
-	// 	self.cpu_registers[r_idx] &= !(1 << n);
-	// }
+	// BIT 5, A
+	fn opcode_bit_5_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'A');}
+	// BIT 5, B
+	fn opcode_bit_5_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'B');}
+	// BIT 5, C
+	fn opcode_bit_5_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'C');}
+	// BIT 5, D
+	fn opcode_bit_5_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'D');}
+	// BIT 5, E
+	fn opcode_bit_5_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'E');}
+	// BIT 5, H
+	fn opcode_bit_5_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'H');}
+	// BIT 5, L
+	fn opcode_bit_5_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 5, 'L');}
+
+	// BIT 6, A
+	fn opcode_bit_6_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'A');}
+	// BIT 6, B
+	fn opcode_bit_6_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'B');}
+	// BIT 6, C
+	fn opcode_bit_6_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'C');}
+	// BIT 6, D
+	fn opcode_bit_6_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'D');}
+	// BIT 6, E
+	fn opcode_bit_6_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'E');}
+	// BIT 6, H
+	fn opcode_bit_6_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'H');}
+	// BIT 6, L
+	fn opcode_bit_6_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 6, 'L');}
+
+	// BIT 7, A
+	fn opcode_bit_7_a(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'A');}
+	// BIT 7, B
+	fn opcode_bit_7_b(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'B');}
+	// BIT 7, C
+	fn opcode_bit_7_c(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'C');}
+	// BIT 7, D
+	fn opcode_bit_7_d(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'D');}
+	// BIT 7, E
+	fn opcode_bit_7_e(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'E');}
+	// BIT 7, H
+	fn opcode_bit_7_h(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'H');}
+	// BIT 7, L
+	fn opcode_bit_7_l(&mut self, mmu: &mut MMU) {self.opcode_bit_n_r(mmu, 7, 'L');}
+
+	// BIT n, m: Test bit n in memory pointed by double register
+	fn opcode_bit_n_m(&mut self, mmu: &mut MMU, n: u8, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let bit = (mmu.get_byte(mem) >> n) & 0x1;
+
+		if bit == 0 {
+			self.set_flag('z', 1);
+		} else {
+			self.set_flag('z', 0);
+		}
+		self.set_flag('n', 0);
+		self.set_flag('h', 1);
+		self.mcycles = 4;
+	}
+	// BIT 0, (HL)
+	fn opcode_bit_0_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 0, "HL");}
+	// BIT 1, (HL)
+	fn opcode_bit_1_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 1, "HL");}
+	// BIT 2, (HL)
+	fn opcode_bit_2_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 2, "HL");}
+	// BIT 3, (HL)
+	fn opcode_bit_3_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 3, "HL");}
+	// BIT 4, (HL)
+	fn opcode_bit_4_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 4, "HL");}
+	// BIT 5, (HL)
+	fn opcode_bit_5_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 5, "HL");}
+	// BIT 6, (HL)
+	fn opcode_bit_6_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 6, "HL");}
+	// BIT 7, (HL)
+	fn opcode_bit_7_hl(&mut self, mmu: &mut MMU) {self.opcode_bit_n_m(mmu, 7, "HL");}
+
+	// SET n, r: Set bit n in register
+	fn opcode_set_n_r(&mut self, _mmu: &mut MMU, n: u8, r: char) {
+		let r_idx = self.r_index(r);
+		self.cpu_registers[r_idx] |= 1 << n;
+		self.mcycles = 2;
+	}
+	// SET 0, A
+	fn opcode_set_0_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'A');}
+	// SET 0, B
+	fn opcode_set_0_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'B');}
+	// SET 0, C
+	fn opcode_set_0_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'C');}
+	// SET 0, D
+	fn opcode_set_0_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'D');}
+	// SET 0, E
+	fn opcode_set_0_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'E');}
+	// SET 0, H
+	fn opcode_set_0_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'H');}
+	// SET 0, L
+	fn opcode_set_0_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 0, 'L');}
+
+	// SET 1, A
+	fn opcode_set_1_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'A');}
+	// SET 1, B
+	fn opcode_set_1_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'B');}
+	// SET 1, C
+	fn opcode_set_1_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'C');}
+	// SET 1, D
+	fn opcode_set_1_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'D');}
+	// SET 1, E
+	fn opcode_set_1_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'E');}
+	// SET 1, H
+	fn opcode_set_1_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'H');}
+	// SET 1, L
+	fn opcode_set_1_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 1, 'L');}
+
+	// SET 2, A
+	fn opcode_set_2_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'A');}
+	// SET 2, B
+	fn opcode_set_2_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'B');}
+	// SET 2, C
+	fn opcode_set_2_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'C');}
+	// SET 2, D
+	fn opcode_set_2_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'D');}
+	// SET 2, E
+	fn opcode_set_2_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'E');}
+	// SET 2, H
+	fn opcode_set_2_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'H');}
+	// SET 2, L
+	fn opcode_set_2_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 2, 'L');}
+
+	// SET 3, A
+	fn opcode_set_3_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'A');}
+	// SET 3, B
+	fn opcode_set_3_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'B');}
+	// SET 3, C
+	fn opcode_set_3_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'C');}
+	// SET 3, D
+	fn opcode_set_3_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'D');}
+	// SET 3, E
+	fn opcode_set_3_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'E');}
+	// SET 3, H
+	fn opcode_set_3_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'H');}
+	// SET 3, L
+	fn opcode_set_3_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 3, 'L');}
+
+	// SET 4, A
+	fn opcode_set_4_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'A');}
+	// SET 4, B
+	fn opcode_set_4_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'B');}
+	// SET 4, C
+	fn opcode_set_4_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'C');}
+	// SET 4, D
+	fn opcode_set_4_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'D');}
+	// SET 4, E
+	fn opcode_set_4_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'E');}
+	// SET 4, H
+	fn opcode_set_4_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'H');}
+	// SET 4, L
+	fn opcode_set_4_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 4, 'L');}
+
+	// SET 5, A
+	fn opcode_set_5_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'A');}
+	// SET 5, B
+	fn opcode_set_5_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'B');}
+	// SET 5, C
+	fn opcode_set_5_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'C');}
+	// SET 5, D
+	fn opcode_set_5_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'D');}
+	// SET 5, E
+	fn opcode_set_5_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'E');}
+	// SET 5, H
+	fn opcode_set_5_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'H');}
+	// SET 5, L
+	fn opcode_set_5_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 5, 'L');}
+
+	// SET 6, A
+	fn opcode_set_6_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'A');}
+	// SET 6, B
+	fn opcode_set_6_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'B');}
+	// SET 6, C
+	fn opcode_set_6_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'C');}
+	// SET 6, D
+	fn opcode_set_6_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'D');}
+	// SET 6, E
+	fn opcode_set_6_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'E');}
+	// SET 6, H
+	fn opcode_set_6_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'H');}
+	// SET 6, L
+	fn opcode_set_6_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 6, 'L');}
+
+	// SET 7, A
+	fn opcode_set_7_a(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'A');}
+	// SET 7, B
+	fn opcode_set_7_b(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'B');}
+	// SET 7, C
+	fn opcode_set_7_c(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'C');}
+	// SET 7, D
+	fn opcode_set_7_d(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'D');}
+	// SET 7, E
+	fn opcode_set_7_e(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'E');}
+	// SET 7, H
+	fn opcode_set_7_h(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'H');}
+	// SET 7, L
+	fn opcode_set_7_l(&mut self, mmu: &mut MMU) {self.opcode_set_n_r(mmu, 7, 'L');}
+
+
+	// Set n, m: Set bit n in memory pointed by double register
+	fn opcode_set_n_m(&mut self, mmu: &mut MMU, n: u8, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let new_value = mmu.get_byte(mem) | (1 << n);
+		mmu.set_byte(mem, new_value);
+	}
+	// SET 0, (HL)
+	fn opcode_set_0_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 0, "HL");}
+	// SET 1, (HL)
+	fn opcode_set_1_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 1, "HL");}
+	// SET 2, (HL)
+	fn opcode_set_2_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 2, "HL");}
+	// SET 3, (HL)
+	fn opcode_set_3_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 3, "HL");}
+	// SET 4, (HL)
+	fn opcode_set_4_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 4, "HL");}
+	// SET 5, (HL)
+	fn opcode_set_5_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 5, "HL");}
+	// SET 6, (HL)
+	fn opcode_set_6_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 6, "HL");}
+	// SET 7, (HL)
+	fn opcode_set_7_hl(&mut self, mmu: &mut MMU) {self.opcode_set_n_m(mmu, 7, "HL");}
+
+	// RES n, r: Reset bit n in register
+	fn opcode_res_n_r(&mut self, _mmu: &mut MMU, n: u8, r: char) {
+		let r_idx = self.r_index(r);
+		self.cpu_registers[r_idx] &= !(1 << n);
+		self.mcycles = 2;
+	}
+	// RES 0, A
+	fn opcode_res_0_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'A');}
+	// RES 0, B
+	fn opcode_res_0_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'B');}
+	// RES 0, C
+	fn opcode_res_0_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'C');}
+	// RES 0, D
+	fn opcode_res_0_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'D');}
+	// RES 0, E
+	fn opcode_res_0_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'E');}
+	// RES 0, H
+	fn opcode_res_0_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'H');}
+	// RES 0, L
+	fn opcode_res_0_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 0, 'L');}
+
+	// RES 1, A
+	fn opcode_res_1_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'A');}
+	// RES 1, B
+	fn opcode_res_1_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'B');}
+	// RES 1, C
+	fn opcode_res_1_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'C');}
+	// RES 1, D
+	fn opcode_res_1_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'D');}
+	// RES 1, E
+	fn opcode_res_1_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'E');}
+	// RES 1, H
+	fn opcode_res_1_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'H');}
+	// RES 1, L
+	fn opcode_res_1_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 1, 'L');}
+
+	// RES 2, A
+	fn opcode_res_2_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'A');}
+	// RES 2, B
+	fn opcode_res_2_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'B');}
+	// RES 2, C
+	fn opcode_res_2_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'C');}
+	// RES 2, D
+	fn opcode_res_2_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'D');}
+	// RES 2, E
+	fn opcode_res_2_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'E');}
+	// RES 2, H
+	fn opcode_res_2_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'H');}
+	// RES 2, L
+	fn opcode_res_2_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 2, 'L');}
+
+	// RES 3, A
+	fn opcode_res_3_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'A');}
+	// RES 3, B
+	fn opcode_res_3_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'B');}
+	// RES 3, C
+	fn opcode_res_3_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'C');}
+	// RES 3, D
+	fn opcode_res_3_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'D');}
+	// RES 3, E
+	fn opcode_res_3_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'E');}
+	// RES 3, H
+	fn opcode_res_3_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'H');}
+	// RES 3, L
+	fn opcode_res_3_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 3, 'L');}
+
+	// RES 4, A
+	fn opcode_res_4_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'A');}
+	// RES 4, B
+	fn opcode_res_4_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'B');}
+	// RES 4, C
+	fn opcode_res_4_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'C');}
+	// RES 4, D
+	fn opcode_res_4_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'D');}
+	// RES 4, E
+	fn opcode_res_4_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'E');}
+	// RES 4, H
+	fn opcode_res_4_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'H');}
+	// RES 4, L
+	fn opcode_res_4_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 4, 'L');}
+
+	// RES 5, A
+	fn opcode_res_5_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'A');}
+	// RES 5, B
+	fn opcode_res_5_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'B');}
+	// RES 5, C
+	fn opcode_res_5_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'C');}
+	// RES 5, D
+	fn opcode_res_5_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'D');}
+	// RES 5, E
+	fn opcode_res_5_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'E');}
+	// RES 5, H
+	fn opcode_res_5_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'H');}
+	// RES 5, L
+	fn opcode_res_5_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 5, 'L');}
+
+	// RES 6, A
+	fn opcode_res_6_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'A');}
+	// RES 6, B
+	fn opcode_res_6_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'B');}
+	// RES 6, C
+	fn opcode_res_6_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'C');}
+	// RES 6, D
+	fn opcode_res_6_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'D');}
+	// RES 6, E
+	fn opcode_res_6_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'E');}
+	// RES 6, H
+	fn opcode_res_6_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'H');}
+	// RES 6, L
+	fn opcode_res_6_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 6, 'L');}
+
+	// RES 7, A
+	fn opcode_res_7_a(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'A');}
+	// RES 7, B
+	fn opcode_res_7_b(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'B');}
+	// RES 7, C
+	fn opcode_res_7_c(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'C');}
+	// RES 7, D
+	fn opcode_res_7_d(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'D');}
+	// RES 7, E
+	fn opcode_res_7_e(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'E');}
+	// RES 7, H
+	fn opcode_res_7_h(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'H');}
+	// RES 7, L
+	fn opcode_res_7_l(&mut self, mmu: &mut MMU) {self.opcode_res_n_r(mmu, 7, 'L');}
 	
-	// // Res n, m: Reset bit n in memory pointed by double register
-	// fn opcode_res_nm(&mut self, n: u8, dreg: &str) {
-	// 	let mem = self.double_register_value(dreg);
-	// 	self.memory[mem] &= !(1 << n);
-	// }
+	// Res n, m: Reset bit n in memory pointed by double register
+	fn opcode_res_n_m(&mut self, mmu: &mut MMU, n: u8, dreg: &str) {
+		let mem = self.double_register_value(dreg);
+		let new_value = mmu.get_byte(mem) & !(1 << n);
+		mmu.set_byte(mem, new_value);
+	}
+	// RES 0, HL
+	fn opcode_res_0_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 0, "HL");}
+	// RES 1, HL
+	fn opcode_res_1_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 1, "HL");}
+	// RES 2, HL
+	fn opcode_res_2_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 2, "HL");}
+	// RES 3, HL
+	fn opcode_res_3_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 3, "HL");}
+	// RES 4, HL
+	fn opcode_res_4_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 4, "HL");}
+	// RES 5, HL
+	fn opcode_res_5_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 5, "HL");}
+	// RES 5, HL
+	fn opcode_res_6_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 6, "HL");}
+	// RES 7, HL
+	fn opcode_res_7_hl(&mut self, mmu: &mut MMU) {self.opcode_res_n_m(mmu, 7, "HL");}
 
 	// CCF: Complement c flag, reset n and h flags
 	fn opcode_ccf(&mut self, _mmu: &mut MMU) {
@@ -2119,16 +2881,17 @@ impl CPU {
 
 	// DI: Disable interrupts
 	// TODO
-	fn opcode_di(&mut self, __mmu: &mut MMU) {
+	fn opcode_di(&mut self, _mmu: &mut MMU) {
 		self.ime = 0;
 		self.mcycles = 1;
 	}
 
-	// // EI: Enable interrupts
-	// // TODO: It is delayed by one instruction, fix later
-	// fn opcode_ei(&mut self) {
-	// 	self.ime = 1;
-	// }
+	// EI: Enable interrupts
+	// TODO: It is delayed by one instruction, fix later
+	fn opcode_ei(&mut self, __mmu: &mut MMU) {
+		self.ime = 1;
+		self.mcycles = 1;
+	}
 
 	// JP: Jump to nn
 	fn opcode_jp_nn(&mut self, mmu: &mut MMU) {
@@ -2145,27 +2908,42 @@ impl CPU {
 	// JP HL
 	fn opcode_jp_hl(&mut self, mmu: &mut MMU) {self.opcode_jp_rr(mmu, "HL");}
 
-	// // JP cc, nn: Jump conditional to nn
-	// fn opcode_jp_ccnn(&mut self, cc: u8, nn: u16) {
-	// 	let bits = cc & 0x03;
-	// 	let condition = match bits {
-	// 		0 => self.get_flag('z') == 0,
-	// 		1 => self.get_flag('z') == 1,
-	// 		2 => self.get_flag('c') == 0,
-	// 		3 => self.get_flag('c')== 1,
-	// 		_ => panic!("JP cc, nn"),
-	// 	};
+	// JP cc, nn: Jump conditional to nn
+	fn opcode_jp_cc_nn(&mut self, mmu: &mut MMU, cc: &str) {
+		let nn = self.fetch_word(mmu);
+		let condition = match cc {
+			"NZ" => self.get_flag('z') == 0,
+			"Z"  => self.get_flag('z') == 1,
+			"NC" => self.get_flag('c') == 0,
+			"C"  => self.get_flag('c') == 1,
+			_ => panic!("JP cc, nn"),
+		};
 
-	// 	if condition == true {
-	// 		self.pc = nn;
-	// 	}
-	// }
+		if condition == true {
+			self.pc = nn;
+			self.mcycles = 4;
+		} else {
+			self.mcycles = 3;
+		}
+	}
+	// JP NZ, nn
+	fn opcode_jp_nz_nn(&mut self, mmu: &mut MMU) {self.opcode_jp_cc_nn(mmu, "NZ");}
+	// JP Z, nn
+	fn opcode_jp_z_nn(&mut self, mmu: &mut MMU) {self.opcode_jp_cc_nn(mmu, "Z");}
+	// JP NC, nn
+	fn opcode_jp_nc_nn(&mut self, mmu: &mut MMU) {self.opcode_jp_cc_nn(mmu, "NC");}
+	// JP C, nn
+	fn opcode_jp_c_nn(&mut self, mmu: &mut MMU) {self.opcode_jp_cc_nn(mmu, "C");}
 
 	// JR dd: Relative jump to dd (signed)
 	fn opcode_jr_dd(&mut self, mmu: &mut MMU) {
 		let dd = self.fetch_byte(mmu);
 		let signed_value = dd as i8;
 		self.pc = self.pc.wrapping_add_signed(signed_value as i16);
+		#[cfg(debug_assertions)] // Detect and exit from infinite loop
+		if signed_value == -2 {
+			process::exit(0);
+		}
 		self.mcycles = 3;
 	}
 
@@ -2227,6 +3005,12 @@ impl CPU {
 	}
 	// CALL NZ, nn
 	fn opcode_call_nz_nn(&mut self, mmu: &mut MMU) {self.opcode_call_cc_nn(mmu, "NZ");}
+	// CALL Z, nn
+	fn opcode_call_z_nn(&mut self, mmu: &mut MMU) {self.opcode_call_cc_nn(mmu, "Z");}
+	// CALL NC, nn
+	fn opcode_call_nc_nn(&mut self, mmu: &mut MMU) {self.opcode_call_cc_nn(mmu, "NC");}
+	// CALL C, nn
+	fn opcode_call_c_nn(&mut self, mmu: &mut MMU) {self.opcode_call_cc_nn(mmu, "C");}
 
 	// RET: Return from subroutine
 	fn opcode_ret(&mut self, mmu: &mut MMU) {
@@ -2254,24 +3038,43 @@ impl CPU {
 	}
 	// RET Z
 	fn opcode_ret_z(&mut self, mmu: &mut MMU) {self.opcode_ret_cc(mmu, "Z");}
+	// RET NZ
+	fn opcode_ret_nz(&mut self, mmu: &mut MMU) {self.opcode_ret_cc(mmu, "NZ");}
 	// RET NC
 	fn opcode_ret_nc(&mut self, mmu: &mut MMU) {self.opcode_ret_cc(mmu, "NC");}
 	// RET C
 	fn opcode_ret_c(&mut self, mmu: &mut MMU) {self.opcode_ret_cc(mmu, "C");}
 
 
-	// // RETI: Return and enable interrupts
-	// fn opcode_reti(&mut self) {
-	// 	self.ime = 1;
-	// 	self.pc = self.pop_stack();
-	// }
+	// RETI: Return and enable interrupts
+	fn opcode_reti(&mut self, mmu: &mut MMU) {
+		self.ime = 1;
+		self.pc = self.pop_stack(mmu);
+		self.mcycles = 4;
+	}
 
-	// // RST n: Call specific addresses
-	// // TODO: Check PC+2
-	// fn opcode_rst(&mut self, n: u8) {
-	// 	self.push_stack(self.pc+2);
-	// 	self.pc = n as u16;
-	// }
+	// RST n: Call specific addresses
+	// TODO: Check PC+2
+	fn opcode_rst_n(&mut self, mmu: &mut MMU, n: u8) {
+		self.push_stack(mmu, self.pc);
+		self.pc = n as u16;
+	}
+	// RST 0
+	fn opcode_rst_0(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x00);}
+	// RST 1
+	fn opcode_rst_1(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x08);}
+	// RST 2
+	fn opcode_rst_2(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x10);}
+	// RST 3
+	fn opcode_rst_3(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x18);}
+	// RST 4
+	fn opcode_rst_4(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x20);}
+	// RST 5
+	fn opcode_rst_5(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x28);}
+	// RST 6
+	fn opcode_rst_6(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x30);}
+	// RST 7
+	fn opcode_rst_7(&mut self, mmu: &mut MMU) {self.opcode_rst_n(mmu, 0x38);}
 
 	// // Unitiliazed opcode
 	// fn opcode_unitialized(&mut self, _mmu: &mut MMU) {

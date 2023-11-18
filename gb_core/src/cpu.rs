@@ -1,4 +1,4 @@
-mod instructions;
+mod opcodes;
 
 use crate::mmu::MMU;
 
@@ -142,16 +142,16 @@ impl CPU {
 	// Push a 16-bit immediate to the stack
 	fn push_stack(&mut self, mmu: &mut MMU, value: u16) {
 		let sp_value = self.double_register_value("SP");
-		mmu.memory[(sp_value) as usize] = ((value & 0xFF00) >> 8) as u8;
-		mmu.memory[(sp_value-1) as usize] = (value & 0x00FF) as u8;
+		mmu.memory[(sp_value-1) as usize] = ((value & 0xFF00) >> 8) as u8;
+		mmu.memory[(sp_value-2) as usize] = (value & 0x00FF) as u8;
 		self.set_double_register("SP", (sp_value-2) as u16);
 	}
 
 	// Pop a 16-bit immediate from the stack, and return its value
 	fn pop_stack(&mut self, mmu: &mut MMU) -> u16 {
 		let sp_value = self.double_register_value("SP");
-		let lsb = mmu.memory[(sp_value+1) as usize];
-		let msb = mmu.memory[(sp_value+2) as usize];
+		let lsb = mmu.memory[(sp_value) as usize];
+		let msb = mmu.memory[(sp_value+1) as usize];
 		let value = ((msb as u16) << 8) | lsb as u16;
 		self.set_double_register("SP", (sp_value+2) as u16);
 		return value;
