@@ -1,5 +1,6 @@
 mod opcodes;
 
+use crate::bus::Bus;
 use crate::mmu::MMU;
 
 const EXPANDED_INSTRUCTION_OPCODE: u8 = 0xCB;
@@ -11,15 +12,18 @@ pub struct CPU {
 	mcycles: u8,
 	// Interrupt master enable flag
 	ime: u8,
-	lookup_table: [Option<fn(&mut CPU, &mut MMU)>; 256],
-	lookup_table2: [Option<fn(&mut CPU, &mut MMU)>; 256],
+	lookup_table: [Option<fn(&mut CPU, &mut Bus)>; 256],
+	lookup_table2: [Option<fn(&mut CPU, &mut Bus)>; 256],
+
+	ime_scheduled: bool,
+	halt_mode: bool,
 }
 
 
 impl CPU {
 	pub fn new() -> Self {
-		let lookup_table: [Option<fn(&mut CPU, &mut MMU)>; 256] = [None; 256];
-		let lookup_table2: [Option<fn(&mut CPU, &mut MMU)>; 256] = [None; 256];
+		let lookup_table: [Option<fn(&mut CPU, &mut Bus)>; 256] = [None; 256];
+		let lookup_table2: [Option<fn(&mut CPU, &mut Bus)>; 256] = [None; 256];
 		CPU {
 			cpu_registers: [0; 10],
 			pc: 0,
@@ -27,6 +31,8 @@ impl CPU {
 			ime: 0,
 			lookup_table,
 			lookup_table2,
+			ime_scheduled: false,
+			halt_mode: false,
 		}
 	}
 
@@ -34,11 +40,11 @@ impl CPU {
 	pub fn initialize(&mut self) {
 		self.cpu_registers = [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D,
 							  0xFF, 0xFE];
-		self.pc = 0x100;
+		self.pc = 0x101;
 		self.build_lookup_tables();
 	}
 
-	pub fn print_state(&self, mmu: &MMU) {
+	pub fn print_state(&self, mmu: &mut MMU) {
 		let byte0 = mmu.get_byte(self.pc);
 		let byte1 = mmu.get_byte(self.pc+1);
 		let byte2 = mmu.get_byte(self.pc+2);
@@ -52,39 +58,114 @@ impl CPU {
 	}
 	
 	// Fetches and executes the next instruction 
-	pub fn step(&mut self, mmu: &mut MMU) {
-		let opcode = mmu.memory[self.pc as usize];
-		self.print_state(mmu);
-		if opcode == EXPANDED_INSTRUCTION_OPCODE {
-			self.pc += 1;
-			let opcode = mmu.memory[self.pc as usize];
-			if let Some(instruction) = self.lookup_table2[opcode as usize] {
-				self.pc += 1;
-				instruction(self, mmu);
-			} else {
-				panic!("Unimplemented expanded opcode: {:02X}", opcode);
-			}
-		}
-		else if let Some(instruction) = self.lookup_table[opcode as usize] {
-			self.pc += 1;
-			instruction(self, mmu);
+	pub fn step(&mut self, bus: &mut Bus) {
+
+		if self.halt_mode {
+			// If in halt mode, don't fetch the next opcode, just tick the bus
+			self.tick(bus);
 		}
 		else {
-			panic!("Unimplemented opcode: {:02X}", opcode);
+			let opcode = bus.mmu.get_byte(self.pc);
+			self.print_state(&mut bus.mmu);
+			// bus.mmu.print_if();
+			if opcode == EXPANDED_INSTRUCTION_OPCODE {
+				self.pc += 1;
+				self.tick(bus);
+				let opcode = bus.mmu.get_byte(self.pc);
+				if let Some(instruction) = self.lookup_table2[opcode as usize] {
+					self.pc += 1;
+					self.tick(bus);
+					instruction(self, bus);
+				} else {
+					panic!("Unimplemented expanded opcode: {:02X}", opcode);
+				}
+			}
+			else if let Some(instruction) = self.lookup_table[opcode as usize] {
+				self.pc += 1;
+				self.tick(bus);
+				instruction(self, bus);
+			}
+			else {
+				panic!("Unimplemented opcode: {:02X}", opcode);
+			}	
 		}
 		
 	}
 
+	// Increments all parts by one M-Cycle
+	pub fn tick(&mut self, bus: &mut Bus) {
+		bus.tick();
+		// bus.mmu.timer.print_state();
+		self.handle_interrupts(bus);
+	}
+
+	// Handle interrupts
+	pub fn handle_interrupts(&mut self, bus: &mut Bus) {
+		let IE = bus.mmu.get_byte(0xFFFF);
+		let mut IF = bus.mmu.get_byte(0xFF0F);
+		if self.ime == 1 {
+			if IE & IF != 0 {
+				if self.halt_mode {
+					self.halt_mode = false;
+				}
+				let interrupt_type = (IE & IF).trailing_zeros() as u8;
+				self.ime = 0; // Disable IME flag
+				IF = self.set_bit(IF, interrupt_type, 0);
+				bus.mmu.set_byte(0xFF0F, IF);
+
+				self.tick(bus);
+				self.tick(bus);
+				self.push_stack(bus, self.pc);
+				self.pc = match interrupt_type {
+					0 => 0x0040,
+					1 => 0x0048,
+					2 => 0x0050,
+					3 => 0x0058,
+					4 => 0x0060,
+					_ => panic!("No interrupt type found: {}", interrupt_type),
+				};
+				self.tick(bus);
+			}
+		}
+		// The CPU will exit halt mode even if IME is set to 0
+		// TODO: Halt bug
+		else if IE & IF != 0 {
+			if self.halt_mode {
+				self.halt_mode = false;
+			}
+		}
+		if self.ime_scheduled {
+			self.ime = 1;
+			self.ime_scheduled = false;
+		}
+	}
+
 	// Fetches a byte from the MMU and moves the PC appropriately
-	pub fn fetch_byte(&mut self, mmu: &MMU) -> u8 {
-		let byte = mmu.get_byte(self.pc);
+	pub fn fetch_byte(&mut self, bus: &mut Bus) -> u8 {
+		let byte = bus.mmu.get_byte(self.pc);
+		self.tick(bus);
 		self.pc += 1;
 		byte
 	}
 
+	// Gets a byte from the CPU
+	pub fn get_byte(&mut self, bus: &mut Bus, mem: u16) -> u8 {
+		let byte = bus.mmu.get_byte(mem);
+		self.tick(bus);
+		byte
+	}
+
+	// Sets a byte in the CPU
+	pub fn set_byte(&mut self, bus: &mut Bus, mem: u16, value: u8) {
+		bus.mmu.set_byte(mem, value);
+		self.tick(bus);
+	}
+
 	// Fetches a word from the MMU and moves the PC appropriately
-	pub fn fetch_word(&mut self, mmu: &MMU) -> u16 {
-		let word = mmu.get_word(self.pc);
+	pub fn fetch_word(&mut self, bus: &mut Bus) -> u16 {
+		let word = bus.mmu.get_word(self.pc);
+		self.tick(bus);
+		self.tick(bus);
 		self.pc += 2;
 		word
 	}
@@ -140,32 +221,35 @@ impl CPU {
     }
 
 	// Push a 16-bit immediate to the stack
-	fn push_stack(&mut self, mmu: &mut MMU, value: u16) {
+	fn push_stack(&mut self, bus: &mut Bus, value: u16) {
 		let sp_value = self.double_register_value("SP");
-		mmu.memory[(sp_value-1) as usize] = ((value & 0xFF00) >> 8) as u8;
-		mmu.memory[(sp_value-2) as usize] = (value & 0x00FF) as u8;
+		bus.mmu.set_byte(sp_value-1, ((value & 0xFF00) >> 8) as u8);
+		self.tick(bus);
+		bus.mmu.set_byte(sp_value-2, (value & 0x00FF) as u8);
+		self.tick(bus);
 		self.set_double_register("SP", (sp_value-2) as u16);
 	}
 
 	// Pop a 16-bit immediate from the stack, and return its value
-	fn pop_stack(&mut self, mmu: &mut MMU) -> u16 {
+	fn pop_stack(&mut self, bus: &mut Bus) -> u16 {
 		let sp_value = self.double_register_value("SP");
-		let lsb = mmu.memory[(sp_value) as usize];
-		let msb = mmu.memory[(sp_value+1) as usize];
+		let lsb = bus.mmu.get_byte(sp_value);
+		self.tick(bus);
+		let msb = bus.mmu.get_byte(sp_value+1);
+		self.tick(bus);
 		let value = ((msb as u16) << 8) | lsb as u16;
 		self.set_double_register("SP", (sp_value+2) as u16);
 		return value;
 	}
 
-
-	// Set a bit in a specified register
-	fn set_bit(&mut self, r: char, bit_position: u8, value: u8) {
-		let r_idx = self.r_index(r);
-		if value == 0 {
-			self.cpu_registers[r_idx] &= !(1 << bit_position);
-		} else {
-			self.cpu_registers[r_idx] |= 1 << bit_position;			
-		}
+	// Set a bit in a u8
+	fn set_bit(&mut self, value: u8, bit_position: u8, bit_value: u8) -> u8 {
+		let new_value = match bit_value {
+			0 => value & !(1 << bit_position),
+			1 => value | 1 << bit_position,
+			_ => panic!("Set bit"),
+		};
+		new_value
 	}
 	
 	// Set a flag to the specified value
@@ -177,7 +261,8 @@ impl CPU {
 			'c' => 4,
 			_ => panic!("Invalid flag name: {}", flag_name),
 		};
-		self.set_bit('F', bit_position, value);
+		let f_idx = self.r_index('F');
+		self.cpu_registers[f_idx] = self.set_bit(self.cpu_registers[f_idx], bit_position, value);
 	}
 
 	// Return the value of a specific flag
