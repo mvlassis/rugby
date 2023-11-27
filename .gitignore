@@ -1,6 +1,6 @@
 /target
 gb_core/target
-dissasembler/target
+gb_desktop/target
 gameboy-test-roms
 *.gb
 *.txt
