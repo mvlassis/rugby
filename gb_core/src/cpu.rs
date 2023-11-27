@@ -66,8 +66,7 @@ impl CPU {
 		}
 		else {
 			let opcode = bus.mmu.get_byte(self.pc);
-			self.print_state(&mut bus.mmu);
-			// bus.mmu.print_if();
+			// self.print_state(&mut bus.mmu);
 			if opcode == EXPANDED_INSTRUCTION_OPCODE {
 				self.pc += 1;
 				self.tick(bus);
@@ -101,17 +100,17 @@ impl CPU {
 
 	// Handle interrupts
 	pub fn handle_interrupts(&mut self, bus: &mut Bus) {
-		let IE = bus.mmu.get_byte(0xFFFF);
-		let mut IF = bus.mmu.get_byte(0xFF0F);
+		let ie = bus.mmu.get_byte(0xFFFF);
+		let mut if_register = bus.mmu.get_byte(0xFF0F);
 		if self.ime == 1 {
-			if IE & IF != 0 {
+			if ie & if_register != 0 {
 				if self.halt_mode {
 					self.halt_mode = false;
 				}
-				let interrupt_type = (IE & IF).trailing_zeros() as u8;
+				let interrupt_type = (ie & if_register).trailing_zeros() as u8;
 				self.ime = 0; // Disable IME flag
-				IF = self.set_bit(IF, interrupt_type, 0);
-				bus.mmu.set_byte(0xFF0F, IF);
+				if_register = self.set_bit(if_register, interrupt_type, 0);
+				bus.mmu.set_byte(0xFF0F, if_register);
 
 				self.tick(bus);
 				self.tick(bus);
@@ -129,7 +128,7 @@ impl CPU {
 		}
 		// The CPU will exit halt mode even if IME is set to 0
 		// TODO: Halt bug
-		else if IE & IF != 0 {
+		else if ie & if_register != 0 {
 			if self.halt_mode {
 				self.halt_mode = false;
 			}
@@ -150,14 +149,14 @@ impl CPU {
 
 	// Gets a byte from the CPU
 	pub fn get_byte(&mut self, bus: &mut Bus, mem: u16) -> u8 {
-		let byte = bus.mmu.get_byte(mem);
+		let byte = bus.get_byte(mem);
 		self.tick(bus);
 		byte
 	}
 
 	// Sets a byte in the CPU
 	pub fn set_byte(&mut self, bus: &mut Bus, mem: u16, value: u8) {
-		bus.mmu.set_byte(mem, value);
+		bus.set_byte(mem, value);
 		self.tick(bus);
 	}
 

@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Write, Result};
+use std::io::Write;
 
 use crate::timer::Timer;
 
@@ -9,7 +9,6 @@ const ROM_START_ADDRESS: usize = 0x00;
 // Gameboy does not actually have an MMU, don't tell the Nintendo ninjas
 pub struct MMU {
 	rom:          [u8; 32768],
-	vram:         [u8; 8192],
 	external_ram: [u8; 8192],
 	wram:         [u8; 8192],
 	oam_memory:   [u8; 160],
@@ -28,7 +27,6 @@ impl MMU {
 		let file = File::create(file_path).unwrap();
 		MMU {
 			rom: [0; 32768],
-			vram: [0; 8192],
 			external_ram: [0; 8192],
 			wram: [0; 8192],
 			oam_memory: [0; 160],
@@ -60,11 +58,10 @@ impl MMU {
 	// Get 8-bit value from memory at a specific address
 	pub fn get_byte(&self, address: u16) -> u8 {
 		if (address as usize) >= MEMORY_SIZE {
-			panic!("get_byte(): Out of memory at address: {}", address);
+			panic!("get_byte(): Out of memory at address: {:04X}", address);
 		}
 		match address {
 			0x0000..=0x7FFF => self.rom[address as usize],
-			0x8000..=0x9FFF => self.vram[address as usize - 0x8000],
 			0xA000..=0xBFFF => self.external_ram[address as usize - 0xA000],
 			0xC000..=0xDFFF => self.wram[address as usize - 0xC000],
 			0xFE00..=0xFE9F => self.oam_memory[address as usize - 0xFE00],
@@ -79,7 +76,7 @@ impl MMU {
 			},
 			0xFF80..=0xFFFE => self.hram[address as usize - 0xFF80],
 			0xFFFF => self.ie_register,
-			_ => panic!("get_byte(): Out of memory at address: {}", address),
+			_ => panic!("get_byte(): Out of memory at address: {:04X}", address),
 		}
 	}
 
@@ -94,16 +91,18 @@ impl MMU {
 	pub fn set_byte(&mut self, address: u16, value: u8) {
 		match address {
 			0x0000..=0x7FFF => self.rom[address as usize] = value,
-			0x8000..=0x9FFF => self.vram[address as usize - 0x8000] = value,
 			0xA000..=0xBFFF => self.external_ram[address as usize - 0xA000] = value,
 			0xC000..=0xDFFF => self.wram[address as usize - 0xC000] = value,
 			0xFE00..=0xFE9F => self.oam_memory[address as usize - 0xFE00] = value,
+			// 0xFEA0..=0xFEFF => (),
 			0xFF00..=0xFF7F => {
 				match address {
 					0xFF01 => self.serial_buffer[0] = value,
 					0xFF02 => {
-						write!(self.file, "{}", self.serial_buffer[0] as char);
-						()
+						if let Err(e) = write!(self.file, "{}",
+											   self.serial_buffer[0] as char) {
+							eprintln!("Writing error: {}", e.to_string())
+						}
 					},
 					0xFF04 => self.timer.reset_timer(),
 					0xFF05 => self.timer.tima = value,
@@ -114,12 +113,8 @@ impl MMU {
 			},
 			0xFF80..=0xFFFE => self.hram[address as usize - 0xFF80] = value,
 			0xFFFF => self.ie_register = value,
-			_ => panic!("get_byte(): Out of memory at address: {}", address),
+			_ => panic!("set_byte(): Out of memory at address: {:04X}", address),
 		}
 	}
 
-	// TODO Debug
-	pub fn print_if(&self) {
-		print!("IF: {} ", self.io_registers[0x0F]);
-	}
 }

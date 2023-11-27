@@ -1,5 +1,3 @@
-use std::process;
-
 use super::CPU;
 use crate::bus::Bus;
 
@@ -763,9 +761,9 @@ impl CPU {
 		let dest_register = self.r_index(r);
 		let value = self.get_byte(bus, mem);
 		self.cpu_registers[dest_register] = value;
-		if mem == 0xFF44 {
-			self.cpu_registers[dest_register] = 0x90;
-		}
+		// if mem == 0xFF44 {
+		// 	self.cpu_registers[dest_register] = 0x90;
+		// }
 	}
 	// LDH A, (FF00+n)
 	fn opcode_ldh_a_n(&mut self, bus: &mut Bus) {
@@ -2859,10 +2857,10 @@ impl CPU {
 		let signed_value = dd as i8;
 		self.pc = self.pc.wrapping_add_signed(signed_value as i16);
 		self.tick(bus);
-		#[cfg(debug_assertions)] // Detect and exit from infinite loop
-		if signed_value == -2 {
-			process::exit(0);
-		}
+		// #[cfg(debug_assertions)] // Detect and exit from infinite loop
+		// if signed_value == -2 {
+		// 	process::exit(0);
+		// }
 	}
 
 	// JR cc, dd: Relative jump to dd (signed) if condition is met
