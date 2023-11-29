@@ -10,7 +10,7 @@ use crate::input_driver::InputDriver;
 
 fn main() {
 	let sdl_context = sdl2::init().unwrap();
-	let mut video_driver = VideoDriver::new(&sdl_context, 2);
+	let mut video_driver = VideoDriver::new(&sdl_context, 3);
 	let mut input_driver = InputDriver::new(&sdl_context);
 	let args: Vec<String> = env::args().collect();
 	let first_arg = &args[1];
@@ -19,11 +19,17 @@ fn main() {
 	
 	loop {
 		video_driver.start_timer();
-		input_driver.handle_input();
-		let screen_buffer = gb.run();
+		
+		let input = input_driver.handle_input();
+		let screen_buffer = gb.run(input);
+		
 		video_driver.draw_window(&screen_buffer);
+
+		
 		let tilemap = gb.get_tilemap();
 		video_driver.draw_tilemap(&tilemap);
+		let bg_map = gb.get_bg_map();
+		video_driver.draw_bg_map(&bg_map);
 		// video_driver.print_fps();
 	}
 }

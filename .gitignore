@@ -6,3 +6,4 @@ gameboy-test-roms
 *.txt
 test-roms
 roms
+.directory

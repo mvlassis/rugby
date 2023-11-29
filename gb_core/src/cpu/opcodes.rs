@@ -23,6 +23,7 @@ impl CPU {
 		lookup_table[0x0E] = Some(CPU::opcode_ld_c_n);
 		lookup_table[0x0F] = Some(CPU::opcode_rrca);
 
+		lookup_table[0x10] = Some(CPU::opcode_stop);
 		lookup_table[0x11] = Some(CPU::opcode_ld_de_nn);
 		lookup_table[0x12] = Some(CPU::opcode_ld_de_a);
 		lookup_table[0x13] = Some(CPU::opcode_inc_de);
@@ -761,9 +762,6 @@ impl CPU {
 		let dest_register = self.r_index(r);
 		let value = self.get_byte(bus, mem);
 		self.cpu_registers[dest_register] = value;
-		// if mem == 0xFF44 {
-		// 	self.cpu_registers[dest_register] = 0x90;
-		// }
 	}
 	// LDH A, (FF00+n)
 	fn opcode_ldh_a_n(&mut self, bus: &mut Bus) {
@@ -812,7 +810,7 @@ impl CPU {
 		let src_register = self.r_index(r);
 		let mem = self.double_register_value(double_reg);
 		self.set_byte(bus, mem, self.cpu_registers[src_register]);
-		self.set_double_register(double_reg, (mem+1) as u16);
+		self.set_double_register(double_reg, mem.wrapping_add(1) as u16);
 	}
 	//	LDI HL, A
 	fn opcode_ldi_hl_a(&mut self, bus: &mut Bus) {self.opcode_ldi_m_r(bus, "HL", 'A');}
@@ -823,7 +821,7 @@ impl CPU {
 		let dest_register = self.r_index(r);
 		let mem = self.double_register_value(double_reg);
 		self.cpu_registers[dest_register] = self.get_byte(bus, mem);
-		self.set_double_register(double_reg, (mem+1) as u16);
+		self.set_double_register(double_reg, mem.wrapping_add(1) as u16);
 	}
 	// LDI A, HL
 	fn opcode_ldi_a_hl(&mut self, bus: &mut Bus) {self.opcode_ldi_r_m(bus, 'A', "HL");}
@@ -2795,14 +2793,17 @@ impl CPU {
 		self.halt_mode = true;
 	}
 
-	// // STOP: Low power standby mode
-	// // TODO
-	// fn opcode_stop(&mut self) {
-		
-	// }
+	// STOP: Low power standby mode
+	// TODO
+	fn opcode_stop(&mut self, bus: &mut Bus) {
+		let input_bits = (bus.get_byte(0xFF00) >> 4) & 0x0F;
+		if input_bits == 0 {
+			println!("Done");
+		}
+		self.pc += 1;
+	}
 
 	// DI: Disable interrupts
-	// TODO
 	fn opcode_di(&mut self, _bus: &mut Bus) {
 		self.ime = 0;
 	}

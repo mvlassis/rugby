@@ -44,11 +44,11 @@ impl CPU {
 		self.build_lookup_tables();
 	}
 
-	pub fn print_state(&self, mmu: &mut MMU) {
-		let byte0 = mmu.get_byte(self.pc);
-		let byte1 = mmu.get_byte(self.pc+1);
-		let byte2 = mmu.get_byte(self.pc+2);
-		let byte3 = mmu.get_byte(self.pc+3);
+	pub fn print_state(&self, bus: &mut Bus) {
+		let byte0 = bus.get_byte(self.pc);
+		let byte1 = bus.get_byte(self.pc+1);
+		let byte2 = bus.get_byte(self.pc+2);
+		let byte3 = bus.get_byte(self.pc+3);
 		println!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
 				 self.cpu_registers[0],
 				 self.cpu_registers[1], self.cpu_registers[2], self.cpu_registers[3],
@@ -65,12 +65,12 @@ impl CPU {
 			self.tick(bus);
 		}
 		else {
-			let opcode = bus.mmu.get_byte(self.pc);
-			// self.print_state(&mut bus.mmu);
+			let opcode = bus.get_byte(self.pc);
+			// self.print_state(bus);
 			if opcode == EXPANDED_INSTRUCTION_OPCODE {
 				self.pc += 1;
 				self.tick(bus);
-				let opcode = bus.mmu.get_byte(self.pc);
+				let opcode = bus.get_byte(self.pc);
 				if let Some(instruction) = self.lookup_table2[opcode as usize] {
 					self.pc += 1;
 					self.tick(bus);
@@ -88,39 +88,39 @@ impl CPU {
 				panic!("Unimplemented opcode: {:02X}", opcode);
 			}	
 		}
-		
+		self.handle_interrupts(bus);
 	}
 
 	// Increments all parts by one M-Cycle
 	pub fn tick(&mut self, bus: &mut Bus) {
 		bus.tick();
 		// bus.mmu.timer.print_state();
-		self.handle_interrupts(bus);
 	}
 
 	// Handle interrupts
 	pub fn handle_interrupts(&mut self, bus: &mut Bus) {
-		let ie = bus.mmu.get_byte(0xFFFF);
-		let mut if_register = bus.mmu.get_byte(0xFF0F);
+		let ie = bus.get_byte(0xFFFF);
+		let mut if_register = bus.get_byte(0xFF0F);
 		if self.ime == 1 {
 			if ie & if_register != 0 {
 				if self.halt_mode {
 					self.halt_mode = false;
 				}
 				let interrupt_type = (ie & if_register).trailing_zeros() as u8;
+				// println!("Found interrupt type: {}", interrupt_type);
 				self.ime = 0; // Disable IME flag
 				if_register = self.set_bit(if_register, interrupt_type, 0);
-				bus.mmu.set_byte(0xFF0F, if_register);
+				bus.set_byte(0xFF0F, if_register);
 
 				self.tick(bus);
 				self.tick(bus);
 				self.push_stack(bus, self.pc);
 				self.pc = match interrupt_type {
-					0 => 0x0040,
-					1 => 0x0048,
-					2 => 0x0050,
-					3 => 0x0058,
-					4 => 0x0060,
+					0 => 0x0040, // VBlank
+					1 => 0x0048, // STAT
+					2 => 0x0050, // Timer
+					3 => 0x0058, // Serial
+					4 => 0x0060, // Joypad
 					_ => panic!("No interrupt type found: {}", interrupt_type),
 				};
 				self.tick(bus);
@@ -141,7 +141,7 @@ impl CPU {
 
 	// Fetches a byte from the MMU and moves the PC appropriately
 	pub fn fetch_byte(&mut self, bus: &mut Bus) -> u8 {
-		let byte = bus.mmu.get_byte(self.pc);
+		let byte = bus.get_byte(self.pc);
 		self.tick(bus);
 		self.pc += 1;
 		byte
@@ -162,7 +162,7 @@ impl CPU {
 
 	// Fetches a word from the MMU and moves the PC appropriately
 	pub fn fetch_word(&mut self, bus: &mut Bus) -> u16 {
-		let word = bus.mmu.get_word(self.pc);
+		let word = bus.get_word(self.pc);
 		self.tick(bus);
 		self.tick(bus);
 		self.pc += 2;
@@ -222,9 +222,9 @@ impl CPU {
 	// Push a 16-bit immediate to the stack
 	fn push_stack(&mut self, bus: &mut Bus, value: u16) {
 		let sp_value = self.double_register_value("SP");
-		bus.mmu.set_byte(sp_value-1, ((value & 0xFF00) >> 8) as u8);
+		bus.set_byte(sp_value-1, ((value & 0xFF00) >> 8) as u8);
 		self.tick(bus);
-		bus.mmu.set_byte(sp_value-2, (value & 0x00FF) as u8);
+		bus.set_byte(sp_value-2, (value & 0x00FF) as u8);
 		self.tick(bus);
 		self.set_double_register("SP", (sp_value-2) as u16);
 	}
@@ -232,9 +232,9 @@ impl CPU {
 	// Pop a 16-bit immediate from the stack, and return its value
 	fn pop_stack(&mut self, bus: &mut Bus) -> u16 {
 		let sp_value = self.double_register_value("SP");
-		let lsb = bus.mmu.get_byte(sp_value);
+		let lsb = bus.get_byte(sp_value);
 		self.tick(bus);
-		let msb = bus.mmu.get_byte(sp_value+1);
+		let msb = bus.get_byte(sp_value+1);
 		self.tick(bus);
 		let value = ((msb as u16) << 8) | lsb as u16;
 		self.set_double_register("SP", (sp_value+2) as u16);

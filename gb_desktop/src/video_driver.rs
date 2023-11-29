@@ -16,6 +16,7 @@ pub struct VideoDriver {
 	screen_height: usize,
 	canvas: Canvas<Window>,
 	canvas_tilemap: Canvas<Window>,
+	canvas_bg_map: Canvas<Window>,
 
 	scale: u32,
 	palette: [Color; 4],
@@ -35,12 +36,16 @@ impl VideoDriver {
 		let start = timer_subsystem.performance_counter();
 
 
-		let window_tilemap = video_subsystem.window("Tilemap", 256, 384)
-			.position(1200, 400).opengl().build().unwrap();
-		let mut canvas_tilemap = window_tilemap.into_canvas().present_vsync().build().unwrap();
+		let window_tilemap = video_subsystem.window("Tilemap", 128 * scale, 192 * scale)
+			.position(1250, 300).opengl().build().unwrap();
+		let mut canvas_tilemap = window_tilemap.into_canvas().build().unwrap();
+
+		let window_bg_map = video_subsystem.window("BGMap", 256 * scale, 256 * scale)
+			.position(100, 150).opengl().build().unwrap();
+		let mut canvas_bg_map = window_bg_map.into_canvas().build().unwrap();
 		
 		let window = video_subsystem.window("Rugby", window_width, window_height).position_centered().opengl().build().unwrap();
-		let mut canvas = window.into_canvas().present_vsync().build().unwrap();
+		let mut canvas = window.into_canvas().build().unwrap();
 
 		let palette = [VideoDriver::hex_to_rgb("#d0d058"),
 					   VideoDriver::hex_to_rgb("#a0a840"),
@@ -51,11 +56,14 @@ impl VideoDriver {
 		canvas.present();
 		canvas_tilemap.clear();
 		canvas_tilemap.present();
+		canvas_bg_map.clear();
+		canvas_bg_map.present();
 		VideoDriver {
 			screen_width: GB_WIDTH,
 			screen_height: GB_HEIGHT,
 			canvas,
 			canvas_tilemap,
+			canvas_bg_map,
 			
 			scale,
 			palette,
@@ -96,6 +104,23 @@ impl VideoDriver {
 			}
 		}
 		self.canvas_tilemap.present();
+	}
+
+	pub fn draw_bg_map(&mut self, bg_map: &[[[LogicalColor; 8]; 8]; 1024]) {
+		self.canvas_bg_map.set_draw_color(Color::RGB(255, 255, 255));
+		self.canvas_bg_map.clear();
+		for tile in 0..1024 as usize {
+			for row in 0..8 {
+				for column in 0..8 {
+					let canvas_row = ((tile / 32 * 8 + row) * self.scale as usize) as i32;
+					let canvas_column = ((tile % 32 * 8 + column) * self.scale as usize) as i32;
+					let rect = Rect::new(canvas_column, canvas_row, self.scale, self.scale);
+					self.canvas_bg_map.set_draw_color(self.get_color(bg_map[tile][row][column]));
+					self.canvas_bg_map.fill_rect(rect).unwrap();					
+				}
+			}
+		}
+		self.canvas_bg_map.present();
 	}
 
 	pub fn start_timer(&mut self) {

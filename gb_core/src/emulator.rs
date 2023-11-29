@@ -4,6 +4,7 @@ use std::io::Read;
 use crate::bus::Bus;
 use crate::cpu::CPU;
 use crate::color::Color;
+use crate::input::Input;
 use crate::ppu::GB_WIDTH;
 use crate::ppu::GB_HEIGHT;
 
@@ -32,7 +33,8 @@ impl Emulator {
 	}
 
 	// Run instructions until we are ready to display a new frame
-	pub fn run(&mut self) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
+	pub fn run(&mut self, input: Input) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
+		self.bus.mmu.store_input(input);
 		while self.bus.ppu.frame_ready == false {
 			self.cpu.step(&mut self.bus);			
 		}
@@ -42,6 +44,10 @@ impl Emulator {
 
 	pub fn get_tilemap(&self) -> [[[Color; 8]; 8]; 384] {
 		self.bus.ppu.get_tilemap()
+	}
+
+	pub fn get_bg_map(&self) -> [[[Color; 8]; 8]; 1024] {
+		self.bus.ppu.get_bg_map(3)
 	}
 }
 
