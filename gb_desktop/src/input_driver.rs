@@ -3,18 +3,20 @@ use sdl2::EventPump;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::keyboard::Scancode;
+use sdl2::video::Window;
 
 use gb_core::input::Input;
 
 pub struct InputDriver {
     event_pump: EventPump,
+    // main_window: &Window,
 }
 
 impl InputDriver {
     pub fn new(sdl: &sdl2::Sdl) -> Self {
         let event_pump = sdl.event_pump().unwrap();
         InputDriver {
-            event_pump
+            event_pump,
         }
     }
 

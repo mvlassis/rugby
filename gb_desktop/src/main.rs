@@ -30,6 +30,6 @@ fn main() {
 		video_driver.draw_tilemap(&tilemap);
 		let bg_map = gb.get_bg_map();
 		video_driver.draw_bg_map(&bg_map);
-		// video_driver.print_fps();
+		video_driver.print_fps();
 	}
 }

@@ -1,5 +1,5 @@
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::VideoSubsystem;
@@ -17,6 +17,10 @@ pub struct VideoDriver {
 	canvas: Canvas<Window>,
 	canvas_tilemap: Canvas<Window>,
 	canvas_bg_map: Canvas<Window>,
+	
+	window_main: Window,
+	window_tilemap: Window,
+	window_bg_map: Window,
 
 	scale: u32,
 	palette: [Color; 4],
@@ -28,6 +32,7 @@ pub struct VideoDriver {
 
 impl VideoDriver {
 	pub fn new(sdl: &sdl2::Sdl, scale: u32) -> Self {
+		sdl2::hint::set("SDL_HINT_RENDER_SCALE_QUALITY", "0");
 		let window_width = (GB_WIDTH as u32) * scale;
 		let window_height = (GB_HEIGHT as u32) * scale;
 
@@ -44,8 +49,8 @@ impl VideoDriver {
 			.position(100, 150).opengl().build().unwrap();
 		let mut canvas_bg_map = window_bg_map.into_canvas().build().unwrap();
 		
-		let window = video_subsystem.window("Rugby", window_width, window_height).position_centered().opengl().build().unwrap();
-		let mut canvas = window.into_canvas().build().unwrap();
+		let window_main = video_subsystem.window("Rugby", window_width, window_height).position_centered().opengl().build().unwrap();
+		let mut canvas = window_main.into_canvas().build().unwrap();
 
 		let palette = [VideoDriver::hex_to_rgb("#d0d058"),
 					   VideoDriver::hex_to_rgb("#a0a840"),
@@ -64,6 +69,10 @@ impl VideoDriver {
 			canvas,
 			canvas_tilemap,
 			canvas_bg_map,
+
+			window_main,
+			window_tilemap,
+			window_bg_map,
 			
 			scale,
 			palette,
@@ -74,59 +83,96 @@ impl VideoDriver {
 	}
 
 	pub fn draw_window(&mut self, screen: &[[LogicalColor; GB_WIDTH]; GB_HEIGHT]) {
-		self.canvas.set_draw_color(self.get_color(LogicalColor::White));
-		self.canvas.clear();
-		
-		for y in 0..GB_HEIGHT {
-			for x in 0..GB_WIDTH {
-				let rect = Rect::new((x * self.scale as usize) as i32,
-									 (y * self.scale as usize) as i32, self.scale, self.scale);
-				self.canvas.set_draw_color(self.get_color(screen[y][x]));
-				self.canvas.fill_rect(rect).unwrap();
+		let texture_creator = self.canvas.texture_creator();
+		let mut texture = texture_creator
+        .create_texture_streaming(PixelFormatEnum::RGB24,  GB_WIDTH as u32, GB_HEIGHT as u32)
+			.map_err(|e| e.to_string()).unwrap();
+
+		texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+			for y in 0..GB_HEIGHT {
+				for x in 0..GB_WIDTH {
+					let offset = y * pitch + x * 3;
+					let color = self.get_color(screen[y][x]);
+					buffer[offset] = color.r as u8;
+					buffer[offset + 1] = color.g as u8;
+					buffer[offset + 2] = color.b as u8;
+				}
 			}
-		}
-		
+		});
+
+		self.canvas.clear();
+		self.canvas.copy(&texture, None, None).unwrap();
 		self.canvas.present();
 	}
 
 	pub fn draw_tilemap(&mut self, tilemap: &[[[LogicalColor; 8]; 8]; 384]) {
-		self.canvas_tilemap.set_draw_color(Color::RGB(255, 255, 255));
-		self.canvas_tilemap.clear();
-		for tile in 0..384 as usize {
-			for row in 0..8 {
-				for column in 0..8 {
-					let canvas_row = ((tile / 16 * 8 + row) * self.scale as usize) as i32;
-					let canvas_column = ((tile % 16 * 8 + column) * self.scale as usize) as i32;
-					let rect = Rect::new(canvas_column, canvas_row, self.scale, self.scale);
-					self.canvas_tilemap.set_draw_color(self.get_color(tilemap[tile][row][column]));
-					self.canvas_tilemap.fill_rect(rect).unwrap();					
+		let texture_creator = self.canvas_tilemap.texture_creator();
+		let mut texture = texture_creator
+        .create_texture_streaming(PixelFormatEnum::RGB24, 128, 192)
+			.map_err(|e| e.to_string()).unwrap();
+
+		texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+			for tile in 0..384 as usize {
+				for row in 0..8 {
+					for column in 0..8 {
+						let canvas_row = (tile / 16 * 8 + row) as usize;
+						let canvas_column = (tile % 16 * 8 + column)  as usize;
+						let color = self.get_color(tilemap[tile][row][column]);
+						let offset =
+							(canvas_row * pitch) + (canvas_column * 3);
+						buffer[offset] = color.r as u8;
+						buffer[offset + 1] = color.g as u8;
+						buffer[offset + 2] = color.b as u8;
+					}
 				}
 			}
-		}
+		});
+
+		self.canvas_tilemap.clear();
+		self.canvas_tilemap.copy(&texture, None, None).unwrap();
 		self.canvas_tilemap.present();
 	}
 
 	pub fn draw_bg_map(&mut self, bg_map: &[[[LogicalColor; 8]; 8]; 1024]) {
-		self.canvas_bg_map.set_draw_color(Color::RGB(255, 255, 255));
-		self.canvas_bg_map.clear();
-		for tile in 0..1024 as usize {
-			for row in 0..8 {
-				for column in 0..8 {
-					let canvas_row = ((tile / 32 * 8 + row) * self.scale as usize) as i32;
-					let canvas_column = ((tile % 32 * 8 + column) * self.scale as usize) as i32;
-					let rect = Rect::new(canvas_column, canvas_row, self.scale, self.scale);
-					self.canvas_bg_map.set_draw_color(self.get_color(bg_map[tile][row][column]));
-					self.canvas_bg_map.fill_rect(rect).unwrap();					
+		let texture_creator = self.canvas_bg_map.texture_creator();
+		let mut texture = texture_creator
+        .create_texture_streaming(PixelFormatEnum::RGB24, 256, 256)
+			.map_err(|e| e.to_string()).unwrap();
+
+		texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+			for tile in 0..1024 as usize {
+				for row in 0..8 {
+					for column in 0..8 {
+						let canvas_row = (tile / 32 * 8 + row) as usize;
+						let canvas_column = (tile % 32 * 8 + column) as usize;
+						
+						let color = self.get_color(bg_map[tile][row][column]);
+
+						let offset =
+							(canvas_row * pitch) + (canvas_column * 3);
+						buffer[offset] = color.r as u8;
+						buffer[offset + 1] = color.g as u8;
+						buffer[offset + 2] = color.b as u8;
+					}
 				}
 			}
-		}
+		});
+
+		self.canvas_bg_map.clear();
+		self.canvas_bg_map.copy(&texture, None, None).unwrap();
 		self.canvas_bg_map.present();
 	}
 
 	pub fn start_timer(&mut self) {
 		self.start = self.timer_subsystem.performance_counter();
 	}
+
+	// Sleeps for the current frame so that we can have correct framerate
+	pub fn sleep_for_frame(&mut self) {
+		
+	}
 	
+	// Prints the framerate
 	pub fn print_fps(&mut self) {
 		// For the FPS counter
 		let end: u64 = self.timer_subsystem.performance_counter();
@@ -156,5 +202,4 @@ impl VideoDriver {
 		let b = u8::from_str_radix(&hex[5..7], 16).unwrap();
 		Color::RGB(r, g, b)
 	}
-
 }
