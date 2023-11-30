@@ -1,3 +1,4 @@
+use crate::cartridge::Cartridge;
 use crate::mmu::MMU;
 use crate::ppu::PPU;
 
@@ -9,8 +10,8 @@ pub struct Bus {
 }
 
 impl Bus {
-	pub fn new() -> Self {
-		let mmu = MMU::new();
+	pub fn new(cartridge: Box<dyn Cartridge>) -> Self {
+		let mmu = MMU::new(cartridge);
 		let ppu = PPU::new();
 		Bus {
 			mmu,

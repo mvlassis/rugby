@@ -1,7 +1,5 @@
-use std::fs::File;
-use std::io::Read;
-
 use crate::bus::Bus;
+use crate::cartridge::load;
 use crate::cpu::CPU;
 use crate::color::Color;
 use crate::input::Input;
@@ -13,14 +11,17 @@ pub struct Emulator {
 	cpu: CPU,
 	bus: Bus,
 
-	current_bg_map: u8, // Show the background maps (for debugging)
+	current_bg_map: u8, // The background map to show (for debugging)
 }
 
 impl Emulator {
-	pub fn new() -> Self {
+	pub fn new(path: &str) -> Self {
 		let mut cpu = CPU::new();
 		cpu.initialize();
-		let mut bus = Bus::new();
+
+		let cartridge = load(path);
+		let mut bus = Bus::new(cartridge);
+
 		bus.initialize();
 		Emulator {
 			cpu,
@@ -28,13 +29,6 @@ impl Emulator {
 
 			current_bg_map: 0
 		}
-	}
-
-	pub fn load(&mut self, path: &str) {
-		let mut rom = File::open(path).expect("Unable to open file {path}");
-		let mut data_buffer = Vec::new();
-		rom.read_to_end(&mut data_buffer).unwrap();
-		self.bus.mmu.load(&data_buffer);
 	}
 
 	// Run instructions until we are ready to display a new frame

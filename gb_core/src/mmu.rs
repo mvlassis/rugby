@@ -1,16 +1,15 @@
 use std::fs::File;
 use std::io::Write;
 
+use crate::cartridge::Cartridge;
 use crate::input::Input;
 use crate::timer::Timer;
 
 const MEMORY_SIZE: usize = 65536;
-const ROM_START_ADDRESS: usize = 0x00;
 
 // Gameboy does not actually have an MMU, don't tell the Nintendo ninjas
 pub struct MMU {
-	rom:          [u8; 32768],
-	external_ram: [u8; 8192],
+	cartridge: Box<dyn Cartridge>,
 	wram:         [u8; 8192],
 	io_registers: [u8; 128],
 	hram:         [u8; 127],
@@ -25,12 +24,11 @@ pub struct MMU {
 }
 
 impl MMU {
-	pub fn new() -> Self {
+	pub fn new(cartridge: Box<dyn Cartridge>) -> Self {
 		let file_path = "output.txt";
 		let file = File::create(file_path).unwrap();
 		MMU {
-			rom: [0; 32768],
-			external_ram: [0; 8192],
+			cartridge,
 			wram: [0; 8192],
 			io_registers: [0; 128],
 			hram: [0; 127],
@@ -54,12 +52,6 @@ impl MMU {
 
 		self.timer.initialize();
 	}
-	
-	// Load a rom in memory;
-	pub fn load(&mut self, data_buffer: &Vec<u8>) {
-		let end = ROM_START_ADDRESS + data_buffer.len();
-		self.rom[ROM_START_ADDRESS..end].copy_from_slice(data_buffer);
-	}
 
 	// Get 8-bit value from memory at a specific address
 	pub fn get_byte(&self, address: u16) -> u8 {
@@ -67,8 +59,8 @@ impl MMU {
 			panic!("MMU::get_byte(): Out of memory at address: {:04X}", address);
 		}
 		match address {
-			0x0000..=0x7FFF => self.rom[address as usize],
-			0xA000..=0xBFFF => self.external_ram[address as usize - 0xA000],
+			0x0000..=0x7FFF => self.cartridge.read(address),
+			0xA000..=0xBFFF => self.cartridge.read(address),
 			0xC000..=0xDFFF => self.wram[address as usize - 0xC000],
 			0xE000..=0xFDFF => self.wram[address as usize - 0xE000],
 			0xFF00..=0xFF7F => {
@@ -92,9 +84,8 @@ impl MMU {
 	// Set an 8-bit value at a specific address in memory
 	pub fn set_byte(&mut self, address: u16, value: u8) {
 		match address {
-			// 0x0000..=0x7FFF => self.rom[address as usize] = value,
-			0x0000..=0x7FFF => (),
-			0xA000..=0xBFFF => self.external_ram[address as usize - 0xA000] = value,
+			0x0000..=0x7FFF => self.cartridge.write(address, value),
+			0xA000..=0xBFFF => self.cartridge.write(address, value),
 			0xC000..=0xDFFF => self.wram[address as usize - 0xC000] = value,
 			0xE000..=0xFDFF => (), // ECHO RAM, ignore
 			0xFEA0..=0xFEFF => (), // Prohibited area, ignore

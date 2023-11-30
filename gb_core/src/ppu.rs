@@ -321,6 +321,9 @@ impl PPU {
                     color = new_color;
                 }
             };
+            if PPU::get_bit(self.lcdc, 7) == 0 {
+                color = Color::White;
+            }
             self.screen_buffer[y as usize][x as usize] = color;
         }
 
@@ -407,7 +410,7 @@ impl PPU {
         let tile_map = match window_enabled {
             true => PPU::get_bit(self.lcdc, 6),
             false => PPU::get_bit(self.lcdc, 3),
-        };
+};
         let bg_map_start = match tile_map {
             0 => 0x1800,
             1 => 0x1C00,
@@ -420,7 +423,7 @@ impl PPU {
         };
         let tile_column = match window_enabled {
             true => ((x.wrapping_sub(self.wx.wrapping_sub(7)))/8) & 0x1F,
-            false => ((x/8).wrapping_add(self.scx/8)) & 0x1F,
+            false => ((x.wrapping_add(self.scx)/8)) & 0x1F,
         };
 
         let tile_index_address = bg_map_start + tile_row as usize + tile_column as usize;
@@ -430,7 +433,7 @@ impl PPU {
         let pixel_x = if window_enabled {
             x.wrapping_sub(self.wx.wrapping_sub(7)) as usize % 8
         } else {
-            x as usize % 8
+            x.wrapping_add(self.scx) as usize % 8
         };
         let pixel_y = if window_enabled {
             y.wrapping_sub(self.wy) as usize % 8

@@ -3,7 +3,6 @@ use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use sdl2::VideoSubsystem;
 use sdl2::TimerSubsystem;
 use spin_sleep; // More accurate than thread::sleep
 
@@ -23,7 +22,6 @@ pub struct VideoDriver {
 	scale: u32,
 	palette: [Color; 4],
 
-	video_subsystem: VideoSubsystem,
 	timer_subsystem: TimerSubsystem,
 	start: u64,
 	end: u64
@@ -71,7 +69,6 @@ impl VideoDriver {
 			
 			scale,
 			palette,
-			video_subsystem,
 			timer_subsystem,
 			start,
 			end,

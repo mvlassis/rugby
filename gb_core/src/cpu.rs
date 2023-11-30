@@ -1,7 +1,6 @@
 mod opcodes;
 
 use crate::bus::Bus;
-use crate::mmu::MMU;
 
 const EXPANDED_INSTRUCTION_OPCODE: u8 = 0xCB;
 
@@ -222,11 +221,11 @@ impl CPU {
 	// Push a 16-bit immediate to the stack
 	fn push_stack(&mut self, bus: &mut Bus, value: u16) {
 		let sp_value = self.double_register_value("SP");
-		bus.set_byte(sp_value-1, ((value & 0xFF00) >> 8) as u8);
+		bus.set_byte(sp_value.wrapping_sub(1), ((value & 0xFF00) >> 8) as u8);
 		self.tick(bus);
-		bus.set_byte(sp_value-2, (value & 0x00FF) as u8);
+		bus.set_byte(sp_value.wrapping_sub(2), (value & 0x00FF) as u8);
 		self.tick(bus);
-		self.set_double_register("SP", (sp_value-2) as u16);
+		self.set_double_register("SP", (sp_value.wrapping_sub(2)) as u16);
 	}
 
 	// Pop a 16-bit immediate from the stack, and return its value

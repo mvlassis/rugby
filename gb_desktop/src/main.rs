@@ -14,8 +14,7 @@ fn main() {
     let mut input_driver = InputDriver::new(&sdl_context);
     let args: Vec<String> = env::args().collect();
     let first_arg = &args[1];
-    let mut gb = Emulator::new();
-    gb.load(first_arg);
+    let mut gb = Emulator::new(first_arg);
     
     loop {
         video_driver.start_timer();
