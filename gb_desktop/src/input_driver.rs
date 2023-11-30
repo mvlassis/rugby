@@ -32,7 +32,7 @@ impl InputDriver {
             match event {
                 Event::Quit {..} |
                 Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    process::exit(0);
+					emulator_input.exit = true;
                 },
                 Event::KeyDown { keycode: Some(Keycode::Left), .. } => {
                     let window_id = event.get_window_id().unwrap();

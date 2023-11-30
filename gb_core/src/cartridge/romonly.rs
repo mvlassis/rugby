@@ -31,4 +31,8 @@ impl Cartridge for RomOnly {
     fn write(&mut self, _address: u16, _value: u8) {
         () // We ignore all writes to ROM
     }
+
+	fn save(&mut self) {
+		
+	}
 }

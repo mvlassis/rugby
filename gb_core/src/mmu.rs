@@ -9,7 +9,7 @@ const MEMORY_SIZE: usize = 65536;
 
 // Gameboy does not actually have an MMU, don't tell the Nintendo ninjas
 pub struct MMU {
-	cartridge: Box<dyn Cartridge>,
+	pub cartridge: Box<dyn Cartridge>,
 	wram:         [u8; 8192],
 	io_registers: [u8; 128],
 	hram:         [u8; 127],

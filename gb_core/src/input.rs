@@ -30,6 +30,7 @@ impl Input {
 // Another simple struct to handle input regarding the emulator state
 #[derive(Clone, Copy)]
 pub struct EmulatorInput {
+	pub exit: bool,
     pub prev_bg_map: bool,
     pub next_bg_map: bool,
 }
@@ -37,6 +38,7 @@ pub struct EmulatorInput {
 impl EmulatorInput {
     pub fn new() -> Self {
         EmulatorInput {
+			exit: false,
             prev_bg_map: false,
             next_bg_map: false,
         }

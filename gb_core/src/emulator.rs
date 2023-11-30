@@ -1,3 +1,5 @@
+use std::process;
+
 use crate::bus::Bus;
 use crate::cartridge::load;
 use crate::cpu::CPU;
@@ -34,6 +36,10 @@ impl Emulator {
 	// Run instructions until we are ready to display a new frame
 	pub fn run(&mut self, input: Input, emulator_input: Option<EmulatorInput>) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
 		if let Some(emulator_input) = emulator_input {
+			if emulator_input.exit == true {
+				self.bus.mmu.cartridge.save();
+				process::exit(0);
+			}
 			self.update_config(emulator_input);
 		}
 		self.bus.mmu.store_input(input);

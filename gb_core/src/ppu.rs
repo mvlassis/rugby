@@ -410,7 +410,7 @@ impl PPU {
         let tile_map = match window_enabled {
             true => PPU::get_bit(self.lcdc, 6),
             false => PPU::get_bit(self.lcdc, 3),
-};
+        };
         let bg_map_start = match tile_map {
             0 => 0x1800,
             1 => 0x1C00,
@@ -438,7 +438,7 @@ impl PPU {
         let pixel_y = if window_enabled {
             y.wrapping_sub(self.wy) as usize % 8
         } else {
-            y as usize % 8
+            y.wrapping_add(self.scy) as usize % 8
         };
         let tile_address = match PPU::get_bit(self.lcdc, 4) {
             0 => (0x1000 + (tile_number_signed * 16)) as usize + (pixel_y * 2),
