@@ -100,15 +100,22 @@ impl PPU {
     
     // Each dot lasts for 1 T-Cycle
     pub fn dot(&mut self) {
+		self.update_clock();
         match self.mode {
             Mode::OAMSearch => self.oam_search(),
             Mode::PixelTransfer => self.pixel_transfer(), 
             Mode::HBlank => self.hblank(),
             Mode::VBlank => self.vblank(),
         }
-        self.update_stat();
+		if PPU::get_bit(self.lcdc, 7) == 1 {
+			self.update_stat();
+        } 
     }
 
+	fn update_clock(&mut self) {
+		
+	}
+	
     // Returns the screen buffer
     pub fn get_screen_buffer(&self) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
         &self.screen_buffer

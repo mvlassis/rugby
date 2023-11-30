@@ -1,5 +1,6 @@
 pub mod romonly;
 pub mod mbc1;
+pub mod mbc2;
 
 use std::fs::File;
 use std::io::Read;
@@ -7,6 +8,7 @@ use std::path::PathBuf;
 
 use romonly::RomOnly;
 use mbc1::MBC1;
+use mbc2::MBC2;
 
 pub const BANK_SIZE: usize = 16384;
 
@@ -38,6 +40,8 @@ pub fn load(path: &str) -> Box<dyn Cartridge> {
         0x00 => Box::new(RomOnly::new(&data_buffer)),
         0x01 | 0x02 => Box::new(MBC1::new(&data_buffer, ram_banks, None)),
         0x03 => Box::new(MBC1::new(&data_buffer, ram_banks, Some(save_path))),
+		0x05 => Box::new(MBC2::new(&data_buffer, None)),
+		0x06 => Box::new(MBC2::new(&data_buffer, Some(save_path))),
         _ => unreachable!("Cartridge::load()"),
     };
     cartridge

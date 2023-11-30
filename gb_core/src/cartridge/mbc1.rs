@@ -35,9 +35,7 @@ impl MBC1 {
 					let result = File::open(path);
 					match result {
 						Ok(mut file) => {
-							println!("Copying save to RAM");
 							let _ = file.read_to_end(&mut ram);
-							println!("{}", ram.len());
 						}
 						Err(_) => {
 							
@@ -68,22 +66,6 @@ impl MBC1 {
 	
 }
 
-impl Drop for MBC1 {
-    fn drop(&mut self) {
-		println!("Drop called...");
-        if let Some(save_path) = &self.save_path {
-			let result = File::create(&save_path);
-            match result {
-                Ok(mut file) => {
-                    let _ = file.write_all(&self.ram);
-                },
-                Err(e) => {
-                    println!("MBC1: An error occured: {}", e);
-                }
-            }
-        }
-    }
-}
 
 impl Cartridge for MBC1 {
     
@@ -165,7 +147,6 @@ impl Cartridge for MBC1 {
     }
 
 	fn save(&mut self) {
-		println!("Save called...");
         if let Some(save_path) = &self.save_path {
 			let result = File::create(&save_path);
             match result {
