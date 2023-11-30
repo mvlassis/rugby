@@ -1,5 +1,6 @@
 // Simple struct thats holds the current input state of the Gameboy
 // Note that true means pressed, false means not pressed
+#[derive(Clone, Copy)]
 pub struct Input {
     pub up: bool,
     pub down: bool,
@@ -22,6 +23,22 @@ impl Input {
             b: false,
             start: false,
             select: false
+        }
+    }
+}
+
+// Another simple struct to handle input regarding the emulator state
+#[derive(Clone, Copy)]
+pub struct EmulatorInput {
+    pub prev_bg_map: bool,
+    pub next_bg_map: bool,
+}
+
+impl EmulatorInput {
+    pub fn new() -> Self {
+        EmulatorInput {
+            prev_bg_map: false,
+            next_bg_map: false,
         }
     }
 }

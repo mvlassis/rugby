@@ -1,9 +1,11 @@
+use std::time::Duration;
 use sdl2::pixels::Color;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::VideoSubsystem;
 use sdl2::TimerSubsystem;
+use spin_sleep; // More accurate than thread::sleep
 
 use gb_core::color::Color as LogicalColor;
 
@@ -14,13 +16,9 @@ const GB_HEIGHT: usize = 144;
 pub struct VideoDriver {
 	screen_width: usize,
 	screen_height: usize,
-	canvas: Canvas<Window>,
-	canvas_tilemap: Canvas<Window>,
-	canvas_bg_map: Canvas<Window>,
-	
-	window_main: Window,
-	window_tilemap: Window,
-	window_bg_map: Window,
+	pub canvas: Canvas<Window>,
+	pub canvas_tilemap: Canvas<Window>,
+	pub canvas_bg_map: Canvas<Window>,
 
 	scale: u32,
 	palette: [Color; 4],
@@ -28,6 +26,7 @@ pub struct VideoDriver {
 	video_subsystem: VideoSubsystem,
 	timer_subsystem: TimerSubsystem,
 	start: u64,
+	end: u64
 }
 
 impl VideoDriver {
@@ -39,7 +38,7 @@ impl VideoDriver {
 		let video_subsystem = sdl.video().unwrap();
 		let timer_subsystem = sdl.timer().unwrap();
 		let start = timer_subsystem.performance_counter();
-
+		let end = timer_subsystem.performance_counter();
 
 		let window_tilemap = video_subsystem.window("Tilemap", 128 * scale, 192 * scale)
 			.position(1250, 300).opengl().build().unwrap();
@@ -69,16 +68,13 @@ impl VideoDriver {
 			canvas,
 			canvas_tilemap,
 			canvas_bg_map,
-
-			window_main,
-			window_tilemap,
-			window_bg_map,
 			
 			scale,
 			palette,
 			video_subsystem,
 			timer_subsystem,
 			start,
+			end,
 		}
 	}
 
@@ -88,7 +84,7 @@ impl VideoDriver {
         .create_texture_streaming(PixelFormatEnum::RGB24,  GB_WIDTH as u32, GB_HEIGHT as u32)
 			.map_err(|e| e.to_string()).unwrap();
 
-		texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+		let _ = texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
 			for y in 0..GB_HEIGHT {
 				for x in 0..GB_WIDTH {
 					let offset = y * pitch + x * 3;
@@ -111,7 +107,7 @@ impl VideoDriver {
         .create_texture_streaming(PixelFormatEnum::RGB24, 128, 192)
 			.map_err(|e| e.to_string()).unwrap();
 
-		texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+		let _ = texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
 			for tile in 0..384 as usize {
 				for row in 0..8 {
 					for column in 0..8 {
@@ -139,7 +135,7 @@ impl VideoDriver {
         .create_texture_streaming(PixelFormatEnum::RGB24, 256, 256)
 			.map_err(|e| e.to_string()).unwrap();
 
-		texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
+		let _ = texture.with_lock(None, |buffer: &mut [u8], pitch: usize| {
 			for tile in 0..1024 as usize {
 				for row in 0..8 {
 					for column in 0..8 {
@@ -162,21 +158,30 @@ impl VideoDriver {
 		self.canvas_bg_map.copy(&texture, None, None).unwrap();
 		self.canvas_bg_map.present();
 	}
-
+	
 	pub fn start_timer(&mut self) {
 		self.start = self.timer_subsystem.performance_counter();
 	}
 
 	// Sleeps for the current frame so that we can have correct framerate
 	pub fn sleep_for_frame(&mut self) {
-		
+		self.end = self.timer_subsystem.performance_counter();
+		let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
+		// The amount of time left to ensure 60 fps
+		let minuend = (1_000_000_000u64 as f64 / 59.75).trunc() as u64;
+		let subtrahend = (seconds * 1_000_000_000f64) as u64;
+		let time_delay = minuend.checked_sub(subtrahend);
+		match time_delay {
+			Some(result) => spin_sleep::sleep(Duration::new(0, result as u32)),
+			
+			None => (),
+		}
 	}
 	
 	// Prints the framerate
 	pub fn print_fps(&mut self) {
-		// For the FPS counter
-		let end: u64 = self.timer_subsystem.performance_counter();
-		let seconds: f64 = (end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
+		self.end = self.timer_subsystem.performance_counter();
+		let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
 		let current_fps = 1.0 / seconds;
 		println!("FPS: {}", current_fps);
 	}

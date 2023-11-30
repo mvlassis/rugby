@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 gb_core = {path = "../gb_core"}
 sdl2 = ">0.33"
+spin_sleep = ">=1.1"
