@@ -54,6 +54,7 @@ pub struct PPU {
     pub stat_interrupt: bool,
     prev_interrupt_line: u8,
     pub frame_ready: bool,
+	pub ppu_disabled: bool,
 }
 
 impl PPU {
@@ -88,6 +89,7 @@ impl PPU {
             stat_interrupt: false,
             prev_interrupt_line: 0,
             frame_ready: false,
+			ppu_disabled: false,
         }
     }
 
@@ -101,19 +103,71 @@ impl PPU {
     // Each dot lasts for 1 T-Cycle
     pub fn dot(&mut self) {
 		self.update_clock();
+		if PPU::get_bit(self.lcdc, 7) == 0 && self.ppu_disabled == false {
+			self.ppu_disabled = true;
+		}
+		if PPU::get_bit(self.lcdc, 7) == 1 && self.ppu_disabled == true {
+			self.ppu_disabled = false;
+			self.ly = 0;
+			self.current_clock = 1;
+			self.window_line_counter = 0;
+			self.window_in_frame = false;
+			self.mode = Mode::OAMSearch;
+		}
         match self.mode {
             Mode::OAMSearch => self.oam_search(),
             Mode::PixelTransfer => self.pixel_transfer(), 
             Mode::HBlank => self.hblank(),
             Mode::VBlank => self.vblank(),
         }
-		if PPU::get_bit(self.lcdc, 7) == 1 {
+		if self.ppu_disabled == false {
 			self.update_stat();
         } 
     }
 
 	fn update_clock(&mut self) {
-		
+		self.current_clock += 1;
+		match self.mode {
+			Mode::OAMSearch => {
+				if self.current_clock >= OAM_SEARCH_DOTS-1 {
+					self.mode = Mode::PixelTransfer;
+				}
+			},
+			Mode::PixelTransfer => {
+				if self.current_clock >= OAM_SEARCH_DOTS + PIXEL_TRANSFER_DOTS - 1 {
+					self.mode = Mode::HBlank;
+				}   
+			},
+			Mode::HBlank => {
+				if self.current_clock >= LINE_DOTS - 1 {
+					self.ly += 1;
+					self.current_clock = 0;
+					if self.ly >= GB_HEIGHT as u8 {
+						// We just entered vlank, request an interrupt
+						self.mode = Mode::VBlank;
+						self.frame_ready = true;
+						if self.ppu_disabled == false {
+							self.vblank_interrupt = true;
+						}
+					} else {
+						self.mode = Mode::OAMSearch;
+					}
+				} 
+			},
+			Mode::VBlank => {
+				if self.current_clock >= LINE_DOTS - 1 {
+					self.ly += 1;
+					self.current_clock = 0;
+					if self.ly >= GB_HEIGHT as u8 + 10 {
+						self.ly = 0;
+						self.window_line_counter = 0;
+						self.window_in_frame = false;
+						self.mode = Mode::OAMSearch;
+					}
+				}  
+			},
+		}
+
 	}
 	
     // Returns the screen buffer
@@ -188,17 +242,17 @@ impl PPU {
 
     // Gets a byte from VRAM
     pub fn get_vram(&self, address: usize) -> u8 {
-        // TODO: Add Blocking
+		// TODO: Blocking
         // match self.mode {
         //  Mode::OAMSearch | Mode::HBlank | Mode::VBlank => self.vram[address],
         //  Mode::PixelTransfer => 0xFF,
-        // }
+        // };
         self.vram[address]
     }
 
     // Sets a byte in VRAM
     pub fn set_vram(&mut self, address: usize, value: u8) {
-        // TODO: Add Blocking
+		// TODO: Blocking
         // match self.mode {
         //  Mode::OAMSearch | Mode::HBlank | Mode::VBlank => self.vram[address] = value,
         //  Mode::PixelTransfer => (),
@@ -228,13 +282,9 @@ impl PPU {
 
     // Mode 2
     fn oam_search(&mut self) {
-        self.current_clock += 1;
         if self.current_clock == 1 {
             self.scan_objects();
         }
-        if self.current_clock >= OAM_SEARCH_DOTS-1 {
-            self.mode = Mode::PixelTransfer;
-        }       
     }
 
     // Searches for objects in OAM memory and saves them to the object buffer
@@ -269,45 +319,19 @@ impl PPU {
 
     // Mode 3
     fn pixel_transfer(&mut self) {
-        self.current_clock += 1;
-        if self.current_clock >= OAM_SEARCH_DOTS + PIXEL_TRANSFER_DOTS - 1 {
-            self.mode = Mode::HBlank;
-        }       
+    
     }
 
     // Mode 0
     fn hblank(&mut self) {
-        self.current_clock += 1;
         if self.current_clock == OAM_SEARCH_DOTS + PIXEL_TRANSFER_DOTS {
             self.draw_scanline();
-        }
-        if self.current_clock >= LINE_DOTS - 1 {
-            self.ly += 1;
-            self.current_clock = 0;
-            if self.ly >= GB_HEIGHT as u8 {
-                // We just entered vlank, request an interrupt
-                self.mode = Mode::VBlank;
-                self.vblank_interrupt = true;
-                self.frame_ready = true;
-            } else {
-                self.mode = Mode::OAMSearch;
-            }
-        }       
+        } 
     }
 
     // Mode 1
     fn vblank(&mut self) {
-        self.current_clock += 1;
-        if self.current_clock >= LINE_DOTS - 1 {
-            self.ly += 1;
-            self.current_clock = 0;
-            if self.ly >= GB_HEIGHT as u8 + 10 {
-                self.ly = 0;
-                self.window_line_counter = 0;
-                self.window_in_frame = false;
-                self.mode = Mode::OAMSearch;
-            }
-        }       
+   
     }
 
     // Draw all pixels in the currect line

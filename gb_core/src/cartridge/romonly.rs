@@ -35,4 +35,8 @@ impl Cartridge for RomOnly {
 	fn save(&mut self) {
 		
 	}
+
+	fn update_clock(&mut self) {
+		
+	}
 }

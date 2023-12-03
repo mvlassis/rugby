@@ -5,27 +5,37 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
 
-#[derive(PartialEq)]
-enum BankingMode {
-    Simple,
-    Advanced,
+
+// Get bit at a specific position
+fn get_bit(value: u8, bit_position: u8) -> u8 {
+	let bit = (value >> bit_position) & 0x1;
+	bit as u8
 }
 
-pub struct MBC1 {
+// Set bit at a specific position to a specific bit value
+fn set_bit(value: usize, bit_position: u8, bit_value: u8) -> usize {
+	let new_value = match bit_value {
+		0 => value & !(1 << bit_position),
+		1 => value | 1 << bit_position,
+		_ => unreachable!("MBC5::set_bit()"),
+	};
+	new_value
+}
+
+pub struct MBC5 {
     rom: Vec<u8>,
     ram: Vec<u8>,
     
     ram_enable: bool,
     rom_bank_number: usize,
     ram_bank_number: usize,
-    banking_mode: BankingMode,
 
 	rom_bit_mask: usize,
 
     save_path: Option<PathBuf>
 }
 
-impl MBC1 {
+impl MBC5 {
     pub fn new(data_buffer: &Vec<u8>, ram_banks: usize, save_path: Option<PathBuf>) -> Self {
         let mut rom: Vec<u8> = Vec::new();
         rom.extend_from_slice(data_buffer);
@@ -55,67 +65,42 @@ impl MBC1 {
 			},
 		}
 		
-        MBC1 {
+        MBC5 {
             rom,
             ram,
             
             ram_enable: false,
-            rom_bank_number: 0,
+            rom_bank_number: 1,
             ram_bank_number: 0,
-            banking_mode: BankingMode::Simple,
 			rom_bit_mask,
-
             save_path
         }
     }
-
 	
 }
 
 
-impl Cartridge for MBC1 {
+impl Cartridge for MBC5 {
     
     fn read(&self, address: u16) -> u8 {
         let address = address as usize;
         match address {
             0x0000..=0x3FFF => {
-                if self.banking_mode == BankingMode::Simple || self.rom_bit_mask <= 0x1F {
-                    self.rom[address]
-                } else {
-					let rom_bank = self.ram_bank_number << 5;
-                    self.rom[address + rom_bank * BANK_SIZE]
-                }
+                self.rom[address]
             }
             0x4000..=0x7FFF => {
                 let address = address - 0x4000;
-				let rom_bank_number = match self.rom_bank_number {
-					0 => 1,
-					_ => self.rom_bank_number,
-				};
-				if self.rom_bit_mask > 0x1F {
-					let rom_bank = (self.ram_bank_number << 5) + rom_bank_number & self.rom_bit_mask;
-		            self.rom[address + (rom_bank * BANK_SIZE)]				
-				}
-				else {
-					self.rom[address + (rom_bank_number & self.rom_bit_mask) * BANK_SIZE]	
-				}
-
+                self.rom[address + (self.rom_bank_number & self.rom_bit_mask) * BANK_SIZE]
             }
             0xA000..=0xBFFF => {
                 let address = address - 0xA000;
                 if self.ram_enable {
-                    if self.banking_mode == BankingMode::Advanced &&
-						self.ram.len() / BANK_SIZE > 1  {
-							self.ram[address + (self.ram_bank_number) * BANK_SIZE]
-						} else {
-							self.ram[address]
-						}
+                    self.ram[address + (self.ram_bank_number) * BANK_SIZE]
                 } else {
-                    0xFF
-                }
-
+					0xFF
+				}
             }
-            _ => unreachable!("MBC1::read() at address: {:04X}", address),
+            _ => unreachable!("MBC5::read() at address: {:04X}", address),
         }
     }
 
@@ -124,42 +109,38 @@ impl Cartridge for MBC1 {
         match address {
             0x0000..=0x1FFF => {
                 let low_nibble = value & 0x0F;
-                if low_nibble == 0xA {
+                if low_nibble == 0x0A {
                     self.ram_enable = true;
                 } else {
                     self.ram_enable = false;
                 }
             }
-            0x2000..=0x3FFF => {
-                let five_bits = value & 0x1F;
-                self.rom_bank_number = five_bits as usize;
+            0x2000..=0x2FFF => {
+				self.rom_bank_number &= !0xFF;
+                self.rom_bank_number |= value as usize;
             }
+			0x3000..=0x3FFF => {
+				let one_bit = value & 0x01;
+				self.rom_bank_number = set_bit(self.rom_bank_number, 8, one_bit);
+			}
             0x4000..=0x5FFF => {
-                let two_bits = value & 0x03;
-                self.ram_bank_number = two_bits as usize;
+                let four_bits = value & 0x0F;
+                self.ram_bank_number = four_bits as usize;
             }
-            0x6000..=0x7FFF => {
-                let one_bit = value & 0x01;
-                if one_bit == 0 {
-                    self.banking_mode = BankingMode::Simple;
-                } else {
-                    self.banking_mode = BankingMode::Advanced;
-                }
+            0x6000..=0x9FFF => {
+                ()
+				
             }
             0xA000..=0xBFFF => {
+				let address = address - 0xA000;
                 if self.ram_enable {
-					if self.banking_mode == BankingMode::Advanced &&
-						self.ram.len() / BANK_SIZE > 1 {
-							self.ram[address - 0xA000 + (self.ram_bank_number) * BANK_SIZE] = value;
-						} else {
-							self.ram[address - 0xA000] = value;
-						}
+                    self.ram[address + (self.ram_bank_number) * BANK_SIZE] = value;
                 } else {
                     ()
                 }
 
             }
-            _ => unreachable!("MBC1::write() at address: {:04X}", address),
+            _ => unreachable!("MBC5::write() at address: {:04X}", address),
         }
     }
 
@@ -171,7 +152,7 @@ impl Cartridge for MBC1 {
                     let _ = file.write_all(&self.ram);
                 },
                 Err(e) => {
-                    eprintln!("MBC1: An error occured: {}", e);
+                    eprintln!("MBC5: An error occured: {}", e);
                 }
             }
         }

@@ -105,7 +105,7 @@ impl Cartridge for MBC2 {
 			0xA000..=0xBFFF => {
                 let address = (address - 0xA000) & 0x1FF;
                 if self.ram_enable {
-                    self.ram[address] = value
+                    self.ram[address] = value | 0xF0;
                 }
             }
             _ => unreachable!("MBC2::write() at address: {:04X}", address),
@@ -120,9 +120,13 @@ impl Cartridge for MBC2 {
                     let _ = file.write_all(&self.ram);
                 },
                 Err(e) => {
-                    println!("MBC2: An error occured: {}", e);
+                    eprintln!("MBC2: An error occured: {}", e);
                 }
             }
         }
     }
+
+	fn update_clock(&mut self) {
+		
+	}
 }

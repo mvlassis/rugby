@@ -16,6 +16,7 @@ pub struct CPU {
 
 	ime_scheduled: bool,
 	halt_mode: bool,
+	rtc_oscillator: u64,
 }
 
 
@@ -32,6 +33,7 @@ impl CPU {
 			lookup_table2,
 			ime_scheduled: false,
 			halt_mode: false,
+			rtc_oscillator: 0,
 		}
 	}
 
@@ -39,7 +41,7 @@ impl CPU {
 	pub fn initialize(&mut self) {
 		self.cpu_registers = [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D,
 							  0xFF, 0xFE];
-		self.pc = 0x101;
+		self.pc = 0x100;
 		self.build_lookup_tables();
 	}
 
@@ -93,6 +95,11 @@ impl CPU {
 	// Increments all parts by one M-Cycle
 	pub fn tick(&mut self, bus: &mut Bus) {
 		bus.tick();
+		self.rtc_oscillator += 1;
+		if self.rtc_oscillator % 1048576 == 0 {
+			bus.mmu.cartridge.update_clock();
+			self.rtc_oscillator = 0
+		}
 		// bus.mmu.timer.print_state();
 	}
 
