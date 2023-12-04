@@ -1,6 +1,7 @@
 pub mod emulator;
 pub mod color;
 pub mod input;
+mod apu;
 mod bus;
 mod cartridge;
 mod cpu;

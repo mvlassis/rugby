@@ -1,8 +1,10 @@
+use crate::apu::APU;
 use crate::cartridge::Cartridge;
 use crate::mmu::MMU;
 use crate::ppu::PPU;
 
 pub struct Bus {
+	pub apu: APU,
 	pub mmu: MMU,
 	pub ppu: PPU,
 
@@ -11,9 +13,11 @@ pub struct Bus {
 
 impl Bus {
 	pub fn new(cartridge: Box<dyn Cartridge>) -> Self {
+		let apu = APU::new();
 		let mmu = MMU::new(cartridge);
 		let ppu = PPU::new();
 		Bus {
+			apu,
 			mmu,
 			ppu,
 			dma_active: false,
@@ -27,6 +31,7 @@ impl Bus {
 	}
 	
 	pub fn tick(&mut self) {
+		self.apu.tick(self.mmu.timer.div);
 		for _ in 0..4 {
 			self.ppu.dot();
 		}
@@ -56,6 +61,7 @@ impl Bus {
 		match address {
 			0x8000..=0x9FFF => self.ppu.get_vram(address as usize - 0x8000),
 			0xFE00..=0xFE9F => self.ppu.get_oam(address as usize - 0xFE00),
+			0xFF10..=0xFF3F => self.apu.get_byte(address),
 			0xFF40 => self.ppu.lcdc,
 			0xFF41 => self.ppu.stat,
 			0xFF42 => self.ppu.scy,
@@ -83,6 +89,7 @@ impl Bus {
 		match address {
 			0x8000..=0x9FFF => self.ppu.set_vram(address as usize - 0x8000, value),
 			0xFE00..=0xFE9F => self.ppu.set_oam(address as usize - 0xFE00, value),
+			0xFF10..=0xFF3F => self.apu.set_byte(address, value),
 			0xFF40 => self.ppu.lcdc = value,
 			0xFF41 => self.ppu.stat = value,
 			0xFF42 => self.ppu.scy = value,

@@ -5,13 +5,6 @@ use std::io::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
 
-
-// Get bit at a specific position
-fn get_bit(value: u8, bit_position: u8) -> u8 {
-	let bit = (value >> bit_position) & 0x1;
-	bit as u8
-}
-
 // Set bit at a specific position to a specific bit value
 fn set_bit(value: usize, bit_position: u8, bit_value: u8) -> usize {
 	let new_value = match bit_value {

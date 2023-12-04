@@ -42,8 +42,8 @@ impl VideoDriver {
 			.position(1250, 300).opengl().build().unwrap();
 		let mut canvas_tilemap = window_tilemap.into_canvas().build().unwrap();
 
-		let window_bg_map = video_subsystem.window("BGMap", 256 * scale, 256 * scale)
-			.position(100, 150).opengl().build().unwrap();
+		let window_bg_map = video_subsystem.window("BGMap", 256 * 2, 256 * 2)
+			.position(200, 250).opengl().build().unwrap();
 		let mut canvas_bg_map = window_bg_map.into_canvas().build().unwrap();
 		
 		let window_main = video_subsystem.window("Rugby", window_width, window_height).position_centered().opengl().build().unwrap();

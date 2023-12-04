@@ -100,7 +100,6 @@ impl CPU {
 			bus.mmu.cartridge.update_clock();
 			self.rtc_oscillator = 0
 		}
-		// bus.mmu.timer.print_state();
 	}
 
 	// Handle interrupts
@@ -113,7 +112,6 @@ impl CPU {
 					self.halt_mode = false;
 				}
 				let interrupt_type = (ie & if_register).trailing_zeros() as u8;
-				// println!("Found interrupt type: {}", interrupt_type);
 				self.ime = 0; // Disable IME flag
 				if_register = self.set_bit(if_register, interrupt_type, 0);
 				bus.set_byte(0xFF0F, if_register);
