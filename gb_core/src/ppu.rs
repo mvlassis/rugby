@@ -2,7 +2,7 @@ use crate::color::Color;
 
 const OAM_SEARCH_DOTS: u16 = 80;
 const PIXEL_TRANSFER_DOTS: u16 = 172;
-const HBLANK_DOTS: u16 = 204;
+// const HBLANK_DOTS: u16 = 204;
 const LINE_DOTS: u16 = 456;
 
 pub const GB_WIDTH: usize = 160;

@@ -45,6 +45,8 @@ impl CPU {
 		self.build_lookup_tables();
 	}
 
+	#[allow(dead_code)]
+	// TODO Remove
 	pub fn print_state(&self, bus: &mut Bus) {
 		let byte0 = bus.get_byte(self.pc);
 		let byte1 = bus.get_byte(self.pc+1);

@@ -13,13 +13,13 @@ const GB_HEIGHT: usize = 144;
 
 // Holds all information needed for drawing to the screen
 pub struct VideoDriver {
-	screen_width: usize,
-	screen_height: usize,
+	_screen_width: usize,
+	_screen_height: usize,
 	pub canvas: Canvas<Window>,
 	pub canvas_tilemap: Canvas<Window>,
 	pub canvas_bg_map: Canvas<Window>,
 
-	scale: u32,
+	_scale: u32,
 	palette: [Color; 4],
 
 	timer_subsystem: TimerSubsystem,
@@ -61,13 +61,13 @@ impl VideoDriver {
 		canvas_bg_map.clear();
 		canvas_bg_map.present();
 		VideoDriver {
-			screen_width: GB_WIDTH,
-			screen_height: GB_HEIGHT,
+			_screen_width: GB_WIDTH,
+			_screen_height: GB_HEIGHT,
 			canvas,
 			canvas_tilemap,
 			canvas_bg_map,
 			
-			scale,
+			_scale: scale,
 			palette,
 			timer_subsystem,
 			start,
@@ -174,11 +174,14 @@ impl VideoDriver {
 			None => (),
 		}
 	}
-	
+
+	#[allow(dead_code)]
 	// Prints the framerate
+	// TODO remove
 	pub fn print_fps(&mut self) {
 		self.end = self.timer_subsystem.performance_counter();
 		let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
+		println!("Seconds: {}", seconds);
 		let current_fps = 1.0 / seconds;
 		println!("FPS: {}", current_fps);
 	}

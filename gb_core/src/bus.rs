@@ -31,7 +31,9 @@ impl Bus {
 	}
 	
 	pub fn tick(&mut self) {
-		self.apu.tick(self.mmu.timer.div);
+		for _ in 0..4 {
+			self.apu.tick(self.mmu.timer.div);
+		}
 		for _ in 0..4 {
 			self.ppu.dot();
 		}

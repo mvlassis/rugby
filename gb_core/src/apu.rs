@@ -1,3 +1,5 @@
+use rodio::{OutputStream, OutputStreamHandle, buffer::SamplesBuffer, Sink};
+
 mod channels;
 
 use crate::apu::channels::ChannelType;
@@ -5,7 +7,12 @@ use crate::apu::channels::PulseChannel;
 use crate::apu::channels::WaveChannel;
 use crate::apu::channels::NoiseChannel;
 
+const AUDIO_BUFFER_SIZE: usize = 1200;
+
 pub struct APU {
+	pub sink: Sink,
+	_stream: (OutputStream, OutputStreamHandle),
+	
 	channel1: PulseChannel,
 	channel2: PulseChannel,
 	channel3: WaveChannel,
@@ -16,15 +23,23 @@ pub struct APU {
 	pub nr52: u8, // Audio master control
 	div_apu: u8,
 	prev_div_apu: u8,
+	audio_buffer: Vec<f32>,
+	capacitor: f32,
+	internal_cycles: u16, // Tracks the current cycle
 }
 
 impl APU {
 	pub fn new() -> Self {
+		let (stream, stream_handle) = OutputStream::try_default().unwrap();
+		let sink = Sink::try_new(&stream_handle).unwrap();
+		
 		let channel1 = PulseChannel::new(ChannelType::Pulse1);
 		let channel2 = PulseChannel::new(ChannelType::Pulse2);
 		let channel3 = WaveChannel::new();
 		let channel4 = NoiseChannel::new();
 		APU {
+			sink,
+			_stream: (stream, stream_handle),
 			channel1,
 			channel2,
 			channel3,
@@ -35,12 +50,20 @@ impl APU {
 			nr52: 0xF1,
 			div_apu: 0,
 			prev_div_apu: 0,
+			audio_buffer: Vec::with_capacity(AUDIO_BUFFER_SIZE),
+			capacitor: 0.0,
+			internal_cycles: 0,
 		}
 	}
 
 	pub fn tick(&mut self, div: u8) {
+		self.channel1.duty_cycle();
+		self.channel2.duty_cycle();
+		self.channel3.duty_cycle();
+		self.channel4.duty_cycle();
+
 		// Increment the DIV APU when detecting a falling edge
-		if (self.prev_div_apu >> 4) & 0x01 == 1 && (div >> 4) & 0x01 == 0 {
+		if self.is_enabled() && (self.prev_div_apu >> 4) & 0x01 == 1 && (div >> 4) & 0x01 == 0 {
 			self.div_apu = self.div_apu.wrapping_add(1);
 			self.channel1.tick(self.div_apu);
 			self.channel2.tick(self.div_apu);
@@ -48,8 +71,63 @@ impl APU {
 			self.channel4.tick(self.div_apu);
 		}
 		self.prev_div_apu = div;
+
+		// Magic number = (apu_freq / 44.1kHz), apu_freq = 2^222
+		if self.internal_cycles >= 95 {
+			self.internal_cycles = 0;
+			self.mix();
+		}
+		self.internal_cycles += 1;
 	}
 
+	fn mix(&mut self) {
+		let channel1_sample = if self.channel1.active {
+			self.channel1.get_sample()
+		} else {
+			0.0
+		};
+		let channel2_sample = if self.channel2.active {
+			self.channel2.get_sample()
+		} else {
+			0.0
+		};
+		let channel3_sample = if self.channel3.active {
+			self.channel3.get_sample()
+		} else {
+			0.0
+		};
+		let channel4_sample = if self.channel4.active {
+			self.channel4.get_sample()
+		} else {
+			0.0
+		};
+
+		let mut left_mix_sample = channel1_sample + channel2_sample
+			+ channel3_sample + channel4_sample;
+		let mut right_mix_sample = channel1_sample + channel2_sample
+			+ channel3_sample + channel4_sample;
+
+		left_mix_sample /= 4.0;
+		right_mix_sample /= 4.0;
+		
+		let ls = self.high_pass(left_mix_sample);
+		let rs = self.high_pass(right_mix_sample);
+
+		self.audio_buffer.extend([ls, rs]);
+		if self.audio_buffer.len() >= AUDIO_BUFFER_SIZE {
+			while self.sink.len() > 2 {}
+            self.sink.append(SamplesBuffer::new(2, 44100, self.audio_buffer.clone()));
+			self.audio_buffer.clear();
+		}
+	}
+
+	// Simulates a high pass filter
+	fn high_pass(&mut self, in_sample: f32) -> f32 {
+        let out = in_sample - self.capacitor;
+        self.capacitor = in_sample - out * 0.99601;
+        out
+    }
+	
 	// Get 8-bit value from memory at a specific address
 	pub fn get_byte(&self, address: u16) -> u8 {
 		match address {
@@ -94,7 +172,6 @@ impl APU {
 						if self.channel4.active {
 							value |= 0x8
 						}
-						// println!("NR52: {:08b}", value);
 						value
 					}
 					0xFF27..=0xFF2F => 0xFF,

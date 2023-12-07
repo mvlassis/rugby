@@ -29,7 +29,9 @@ impl Timer {
 		self.tma = 0;
 		self.tac = 0xF8;
 	}
-	
+
+	// TODO Remove
+	#[allow(dead_code)]
 	pub fn print_state(&self) {
 		println!("internal: {:04X} DIV: {:02X} TIMA: {:02X} TMA: {:02X} TAC: {:02X} TI: {}",	 
 		self.internal_timer, self.div, self.tima, self.tma, self.tac, self.timer_interrupt);

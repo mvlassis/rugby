@@ -26,8 +26,8 @@ pub fn load(path: &str) -> Box<dyn Cartridge> {
     let mut data_buffer = Vec::new();
     rom.read_to_end(&mut data_buffer).unwrap();
 
+	let _rom_size = BANK_SIZE * (2 << data_buffer[0x0148]);
     let cartridge_type = data_buffer[0x0147];
-    let rom_size = BANK_SIZE * (2 << data_buffer[0x0148]);
     let ram_banks = match data_buffer[0x0149] {
         0x00 => 0,
         0x01 => 0,
