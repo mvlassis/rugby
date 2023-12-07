@@ -7,7 +7,7 @@ use crate::apu::channels::PulseChannel;
 use crate::apu::channels::WaveChannel;
 use crate::apu::channels::NoiseChannel;
 
-const AUDIO_BUFFER_SIZE: usize = 1200;
+const AUDIO_BUFFER_SIZE: usize = 1100;
 
 pub struct APU {
 	pub sink: Sink,
