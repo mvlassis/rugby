@@ -17,12 +17,12 @@ pub struct Emulator {
 }
 
 impl Emulator {
-	pub fn new(path: &str) -> Self {
+	pub fn new(path: &str, callback: Box<dyn Fn(&[f32])>) -> Self {
 		let mut cpu = CPU::new();
 		cpu.initialize();
 
 		let cartridge = load(path);
-		let mut bus = Bus::new(cartridge);
+		let mut bus = Bus::new(cartridge, callback);
 
 		bus.initialize();
 		Emulator {

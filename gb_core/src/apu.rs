@@ -1,5 +1,3 @@
-use rodio::{OutputStream, OutputStreamHandle, buffer::SamplesBuffer, Sink};
-
 mod channels;
 
 use crate::apu::channels::ChannelType;
@@ -7,39 +5,43 @@ use crate::apu::channels::PulseChannel;
 use crate::apu::channels::WaveChannel;
 use crate::apu::channels::NoiseChannel;
 
-const AUDIO_BUFFER_SIZE: usize = 1200;
+const AUDIO_BUFFER_SIZE: usize = 1024;
 
 pub struct APU {
-	pub sink: Sink,
-	_stream: (OutputStream, OutputStreamHandle),
+	callback: Box<dyn Fn(&[f32])>,
+	pub buffer: Box<[f32; AUDIO_BUFFER_SIZE]>,
+	pub buffer_position: usize,
+	pub is_buffer_full: bool,
 	
 	channel1: PulseChannel,
 	channel2: PulseChannel,
 	channel3: WaveChannel,
 	channel4: NoiseChannel,
-	
+
 	pub nr50: u8, // Master volume
 	pub nr51: u8, // Sound panning
 	pub nr52: u8, // Audio master control
 	div_apu: u8,
 	prev_div_apu: u8,
-	audio_buffer: Vec<f32>,
 	capacitor: f32,
 	internal_cycles: u16, // Tracks the current cycle
 }
 
 impl APU {
-	pub fn new() -> Self {
-		let (stream, stream_handle) = OutputStream::try_default().unwrap();
-		let sink = Sink::try_new(&stream_handle).unwrap();
+	pub fn new(callback: Box<dyn Fn(&[f32])>) -> Self {
 		
 		let channel1 = PulseChannel::new(ChannelType::Pulse1);
 		let channel2 = PulseChannel::new(ChannelType::Pulse2);
 		let channel3 = WaveChannel::new();
 		let channel4 = NoiseChannel::new();
 		APU {
-			sink,
-			_stream: (stream, stream_handle),
+			// sink,
+			// _stream: (stream, stream_handle),
+			callback,
+			buffer: Box::new([0.0; AUDIO_BUFFER_SIZE]),
+			buffer_position: 0,
+			is_buffer_full: false,
+			
 			channel1,
 			channel2,
 			channel3,
@@ -50,7 +52,6 @@ impl APU {
 			nr52: 0xF1,
 			div_apu: 0,
 			prev_div_apu: 0,
-			audio_buffer: Vec::with_capacity(AUDIO_BUFFER_SIZE),
 			capacitor: 0.0,
 			internal_cycles: 0,
 		}
@@ -80,6 +81,7 @@ impl APU {
 		self.internal_cycles += 1;
 	}
 
+	// Fills the audio buffer with a new sample
 	fn mix(&mut self) {
 		let channel1_sample = if self.channel1.active {
 			self.channel1.get_sample()
@@ -113,18 +115,20 @@ impl APU {
 		let ls = self.high_pass(left_mix_sample);
 		let rs = self.high_pass(right_mix_sample);
 
-		self.audio_buffer.extend([ls, rs]);
-		if self.audio_buffer.len() >= AUDIO_BUFFER_SIZE {
-			while self.sink.len() > 2 {}
-            self.sink.append(SamplesBuffer::new(2, 44100, self.audio_buffer.clone()));
-			self.audio_buffer.clear();
+		self.buffer[self.buffer_position] = ls;
+		self.buffer[self.buffer_position + 1] = rs;
+		self.buffer_position += 2;
+		
+		if self.buffer_position >= AUDIO_BUFFER_SIZE {
+			(self.callback)(self.buffer.as_ref());
+			self.buffer_position = 0;
 		}
 	}
 
 	// Simulates a high pass filter
 	fn high_pass(&mut self, in_sample: f32) -> f32 {
         let out = in_sample - self.capacitor;
-        self.capacitor = in_sample - out * 0.99601;
+        self.capacitor = in_sample - out * 0.996;
         out
     }
 	

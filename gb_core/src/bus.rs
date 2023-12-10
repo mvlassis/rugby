@@ -12,8 +12,8 @@ pub struct Bus {
 }
 
 impl Bus {
-	pub fn new(cartridge: Box<dyn Cartridge>) -> Self {
-		let apu = APU::new();
+	pub fn new(cartridge: Box<dyn Cartridge>, callback: Box<dyn Fn(&[f32])>) -> Self {
+		let apu = APU::new(callback);
 		let mmu = MMU::new(cartridge);
 		let ppu = PPU::new();
 		Bus {
