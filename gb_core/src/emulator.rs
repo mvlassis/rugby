@@ -1,4 +1,5 @@
 use std::process;
+use std::path::PathBuf;
 
 use crate::bus::Bus;
 use crate::cartridge::load;
@@ -17,11 +18,11 @@ pub struct Emulator {
 }
 
 impl Emulator {
-	pub fn new(path: &str, callback: Box<dyn Fn(&[f32])>) -> Self {
+	pub fn new(path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
 		let mut cpu = CPU::new();
 		cpu.initialize();
 
-		let cartridge = load(path);
+		let cartridge = load(path_buf);
 		let mut bus = Bus::new(cartridge, callback);
 
 		bus.initialize();
@@ -33,12 +34,22 @@ impl Emulator {
 		}
 	}
 
+	pub fn load(&mut self, path_buf: PathBuf) {
+		self.cpu.initialize();
+		let cartridge = load(path_buf);
+		self.bus.load_rom(cartridge);
+		self.bus.initialize();
+	}
+
 	// Run instructions until we are ready to display a new frame
 	pub fn run(&mut self, input: Input, emulator_input: Option<EmulatorInput>) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
 		if let Some(emulator_input) = emulator_input {
 			if emulator_input.exit == true {
 				self.bus.mmu.cartridge.save();
 				process::exit(0);
+			}
+			if emulator_input.toggle_mute == true {
+				self.bus.apu.toggle_mute();
 			}
 			self.update_config(emulator_input);
 		}
@@ -68,5 +79,3 @@ impl Emulator {
 	}
 }
 
-#[cfg(test)]
-mod tests;

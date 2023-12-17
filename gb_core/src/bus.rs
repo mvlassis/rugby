@@ -24,10 +24,16 @@ impl Bus {
 		}
 	}
 
+	// Initializes Bus
 	pub fn initialize(&mut self) {
 		self.mmu.initialize();
 		self.ppu.initialize();
+		self.apu.reset();
 		self.dma_active = false;
+	}
+
+	pub fn load_rom(&mut self, cartridge: Box<dyn Cartridge>) {
+		self.mmu = MMU::new(cartridge);
 	}
 	
 	pub fn tick(&mut self) {
@@ -54,6 +60,12 @@ impl Bus {
 			self.mmu.timer.timer_interrupt = 0;
 			let mut if_register = self.mmu.get_byte(0xFF0F);
 			if_register = Bus::set_bit(if_register, 2, 1);
+			self.mmu.set_byte(0xFF0F, if_register);
+		}
+		if self.mmu.joypad_interrupt == true {
+			self.mmu.joypad_interrupt = false;
+			let mut if_register = self.mmu.get_byte(0xFF0F);
+			if_register = Bus::set_bit(if_register, 4, 1);
 			self.mmu.set_byte(0xFF0F, if_register);
 		}
 	}

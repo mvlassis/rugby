@@ -18,7 +18,7 @@ pub struct MMU {
 	pub timer: Timer,
 	input: Input,
 	prev_p1: u8,
-	joypad_interrupt: bool,
+	pub joypad_interrupt: bool,
 	serial_buffer: [u8; 100], // TODO: size
 	file: File,
 }
@@ -145,6 +145,13 @@ impl MMU {
 			input_byte = MMU::set_bit(input_byte, 3, MMU::reverse_flag(self.input.start));
 		}
 		self.io_registers[0x00] = input_byte;
+
+		// Check whether a p1 interrupt has occured
+		if (self.prev_p1 & 0x0F) & !(input_byte & 0x0F) != 0 {
+			self.joypad_interrupt = true;
+		}
+		
+		self.prev_p1 = input_byte;
 	}
 	
 	pub fn store_input(&mut self, input: Input) {

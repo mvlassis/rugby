@@ -31,6 +31,7 @@ impl Input {
 #[derive(Clone, Copy)]
 pub struct EmulatorInput {
 	pub exit: bool,
+	pub toggle_mute: bool,
     pub prev_bg_map: bool,
     pub next_bg_map: bool,
 }
@@ -39,6 +40,7 @@ impl EmulatorInput {
     pub fn new() -> Self {
         EmulatorInput {
 			exit: false,
+			toggle_mute: false,
             prev_bg_map: false,
             next_bg_map: false,
         }

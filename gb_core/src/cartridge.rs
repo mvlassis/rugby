@@ -16,13 +16,13 @@ use mbc5::MBC5;
 
 pub const BANK_SIZE: usize = 16384;
 
-pub fn load(path: &str) -> Box<dyn Cartridge> {
-    let mut save_path = PathBuf::from(path);
+pub fn load(path_buf: PathBuf) -> Box<dyn Cartridge> {
+    let mut save_path = path_buf.clone();
     if let Some(file_stem) = save_path.file_stem() {
         save_path = save_path.with_file_name(file_stem).with_extension("sav");
     }
     
-    let mut rom = File::open(path).expect("Unable to open file {path}");
+    let mut rom = File::open(path_buf).expect("Unable to open file {path}");
     let mut data_buffer = Vec::new();
     rom.read_to_end(&mut data_buffer).unwrap();
 

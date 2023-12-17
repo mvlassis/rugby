@@ -416,7 +416,7 @@ impl NoiseChannel {
 
 	// Called every T-Cycle
 	pub fn duty_cycle(&mut self) {
-		self.frequency_timer -= 1;
+		self.frequency_timer = self.frequency_timer.wrapping_sub(1);
 
 		if self.frequency_timer == 0 {
 			// Update the frequency timer
