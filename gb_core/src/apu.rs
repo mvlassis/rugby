@@ -25,6 +25,8 @@ pub struct APU {
 	prev_div_apu: u8,
 	capacitor: f32,
 	internal_cycles: u16, // Tracks the current cycle
+
+	is_mute: bool,
 }
 
 impl APU {
@@ -35,8 +37,6 @@ impl APU {
 		let channel3 = WaveChannel::new();
 		let channel4 = NoiseChannel::new();
 		APU {
-			// sink,
-			// _stream: (stream, stream_handle),
 			callback,
 			buffer: Box::new([0.0; AUDIO_BUFFER_SIZE]),
 			buffer_position: 0,
@@ -54,9 +54,34 @@ impl APU {
 			prev_div_apu: 0,
 			capacitor: 0.0,
 			internal_cycles: 0,
+			is_mute: false,
 		}
 	}
 
+	// Resets the APU (using the same callback function)
+	pub fn reset(&mut self) {
+		self.channel1 = PulseChannel::new(ChannelType::Pulse1);
+		self.channel2 = PulseChannel::new(ChannelType::Pulse2);
+		self.channel3 = WaveChannel::new();
+		self.channel4 = NoiseChannel::new();
+
+		self.buffer = Box::new([0.0; AUDIO_BUFFER_SIZE]);
+		self.buffer_position = 0;
+		self.is_buffer_full = false;
+		
+		self.nr50 = 0x77;
+		self.nr51 = 0xF3;
+		self.nr52 = 0xF1;
+		self.div_apu = 0;
+		self.prev_div_apu = 0;
+		self.capacitor = 0.0;
+		self.internal_cycles = 0;
+	}
+
+	pub fn toggle_mute(&mut self) {
+		self.is_mute = !self.is_mute;
+	}
+	
 	pub fn tick(&mut self, div: u8) {
 		self.channel1.duty_cycle();
 		self.channel2.duty_cycle();
@@ -104,10 +129,16 @@ impl APU {
 			0.0
 		};
 
-		let mut left_mix_sample = channel1_sample + channel2_sample
-			+ channel3_sample + channel4_sample;
-		let mut right_mix_sample = channel1_sample + channel2_sample
-			+ channel3_sample + channel4_sample;
+		let mut left_mix_sample = match self.is_mute {
+			true => 0.0,
+			false => channel1_sample + channel2_sample
+			+ channel3_sample + channel4_sample,
+		};
+		let mut right_mix_sample = match self.is_mute {
+			true => 0.0,
+			false => channel1_sample + channel2_sample
+			+ channel3_sample + channel4_sample
+		} ;
 
 		left_mix_sample /= 4.0;
 		right_mix_sample /= 4.0;

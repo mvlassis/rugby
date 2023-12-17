@@ -1,0 +1,10 @@
+[frontend]
+default_palette = "bgb"
+palettes_available = ["bgb", "ice_cream_gb", "octo", "2bit_demichrome", "mist_gb"]
+
+bgb = ["#e0f8d0", "#88c070", "#346856", "#081820"]
+octo = ["#ffcc00", "#ff6600", "#996600", "#662200"]
+ice_cream_gb = ["#fff6d3", "#f9a875", "#eb6b6f", "#7c3f58"]
+2bit_demichrome = ["#e9efec", "#a0a08b", "#555568", "#211e20"]
+mist_gb = ["#c4f0c2", "#5ab9a8", "#1e606e", "#2d1b00"]
+

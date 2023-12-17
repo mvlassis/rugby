@@ -30,13 +30,6 @@ impl Timer {
 		self.tac = 0xF8;
 	}
 
-	// TODO Remove
-	#[allow(dead_code)]
-	pub fn print_state(&self) {
-		println!("internal: {:04X} DIV: {:02X} TIMA: {:02X} TMA: {:02X} TAC: {:02X} TI: {}",	 
-		self.internal_timer, self.div, self.tima, self.tma, self.tac, self.timer_interrupt);
-	}
-	
 	// Update all timers. This is called every M-Cycle
 	pub fn tick(&mut self) {
 		self.internal_timer = self.internal_timer.wrapping_add(4);
