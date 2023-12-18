@@ -96,6 +96,9 @@ pub struct EguiApp {
 	scale: f32,
 	exit_program: bool,
 	toggle_mute: bool,
+	audio_on: bool,
+	active_channels: [bool; 4],
+	toggle_channels: [bool; 4],
 	show_palette_window: bool,
 	
 	timer_subsystem: TimerSubsystem,
@@ -129,6 +132,9 @@ impl EguiApp {
 			scale: *scale,
 			exit_program: false,
 			toggle_mute: false,
+			audio_on: true,
+			active_channels: [true; 4],
+			toggle_channels: [false; 4],
 			show_palette_window: false,
 			timer_subsystem: timer,
 			start,
@@ -177,7 +183,13 @@ impl EguiApp {
 			emulator_input.exit = true;
 			self.exit_program = false;
 		}
-		
+
+		for i in 0..=3 {
+			if self.toggle_channels[i] {
+				emulator_input.toggle_channel[i] = true;
+				self.toggle_channels[i] = false;
+			}
+		}
 		(input, emulator_input)
 	}
 
@@ -203,13 +215,6 @@ impl EguiApp {
 			LogicalColor::LightGray => self.palettes[i].colors[1],
 			LogicalColor::DarkGray => self.palettes[i].colors[2],
 			LogicalColor::Black => self.palettes[i].colors[3],
-		}
-	}
-
-	fn save_palette(&self, frame: &mut eframe::Frame) {
-		if let Some(storage) = frame.storage_mut() {
-			eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
-			storage.flush();
 		}
 	}
 }
@@ -255,7 +260,6 @@ impl eframe::App for EguiApp {
 								}
 								self.recent_roms.push(path.clone());
 							}
-							
 							// Update the storage
 							if let Some(storage) = frame.storage_mut() {
                                 eframe::set_value(storage, "recent_roms", &self.recent_roms);
@@ -291,16 +295,25 @@ impl eframe::App for EguiApp {
 							if ui.radio_value(&mut self.palette_index,
 											  i, &self.palettes[i].name).clicked() {
 								self.palette_index = i;
-								self.save_palette(frame);
 							}
 						}
 					});
 					if ui.button("Palette Picker").clicked() {
 						self.show_palette_window = !self.show_palette_window;
 					}
-					if ui.button("Mute").clicked() {
+				});
+				ui.menu_button("Audio", |ui| {
+					if ui.checkbox(&mut self.audio_on, "Toggle Audio").clicked() {
 						self.toggle_mute = true;
 					}
+					ui.menu_button("Audio Channels", |ui| {
+						for i in 0..=3 {
+							if ui.checkbox(&mut self.active_channels[i],
+										   format!("Channel {}", i)).clicked() {
+								self.toggle_channels[i] = true;
+							}
+						}
+					});
 				});
 				// Exit
 				if ui.button("Exit").clicked() {

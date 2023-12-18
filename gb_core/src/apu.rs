@@ -17,6 +17,7 @@ pub struct APU {
 	channel2: PulseChannel,
 	channel3: WaveChannel,
 	channel4: NoiseChannel,
+	mute_channels: [bool; 4],
 
 	pub nr50: u8, // Master volume
 	pub nr51: u8, // Sound panning
@@ -46,6 +47,7 @@ impl APU {
 			channel2,
 			channel3,
 			channel4,
+			mute_channels: [false; 4],
 			
 			nr50: 0x77,
 			nr51: 0xF3,
@@ -81,6 +83,10 @@ impl APU {
 	pub fn toggle_mute(&mut self) {
 		self.is_mute = !self.is_mute;
 	}
+
+	pub fn toggle_channel(&mut self, i: usize) {
+		self.mute_channels[i] = !self.mute_channels[i];
+	}
 	
 	pub fn tick(&mut self, div: u8) {
 		self.channel1.duty_cycle();
@@ -108,22 +114,22 @@ impl APU {
 
 	// Fills the audio buffer with a new sample
 	fn mix(&mut self) {
-		let channel1_sample = if self.channel1.active {
+		let channel1_sample = if self.channel1.active && !self.mute_channels[0] {
 			self.channel1.get_sample()
 		} else {
 			0.0
 		};
-		let channel2_sample = if self.channel2.active {
+		let channel2_sample = if self.channel2.active && !self.mute_channels[1] {
 			self.channel2.get_sample()
 		} else {
 			0.0
 		};
-		let channel3_sample = if self.channel3.active {
+		let channel3_sample = if self.channel3.active && !self.mute_channels[2] {
 			self.channel3.get_sample()
 		} else {
 			0.0
 		};
-		let channel4_sample = if self.channel4.active {
+		let channel4_sample = if self.channel4.active && !self.mute_channels[3] {
 			self.channel4.get_sample()
 		} else {
 			0.0

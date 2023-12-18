@@ -32,6 +32,7 @@ impl Input {
 pub struct EmulatorInput {
 	pub exit: bool,
 	pub toggle_mute: bool,
+	pub toggle_channel: [bool; 4],
     pub prev_bg_map: bool,
     pub next_bg_map: bool,
 }
@@ -41,6 +42,7 @@ impl EmulatorInput {
         EmulatorInput {
 			exit: false,
 			toggle_mute: false,
+			toggle_channel: [false; 4],
             prev_bg_map: false,
             next_bg_map: false,
         }

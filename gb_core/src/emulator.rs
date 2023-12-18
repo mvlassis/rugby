@@ -51,6 +51,11 @@ impl Emulator {
 			if emulator_input.toggle_mute == true {
 				self.bus.apu.toggle_mute();
 			}
+			for i in 0..=3 {
+				if emulator_input.toggle_channel[i] {
+					self.bus.apu.toggle_channel(i);
+				}
+			}
 			self.update_config(emulator_input);
 		}
 		self.bus.mmu.store_input(input);
