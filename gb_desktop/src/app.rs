@@ -1,7 +1,7 @@
 use eframe::egui;
+use eframe::Storage;
 use egui::{Color32, Frame, InputState, Key, Vec2, ViewportCommand};
 use rfd::FileDialog;
-
 use sdl2::audio::{AudioQueue, AudioSpecDesired};
 use sdl2::TimerSubsystem;
 use std::env;
@@ -18,6 +18,7 @@ use crate::config_builder::get_all_palettes;
 const GB_WIDTH: usize = 160;
 const GB_HEIGHT: usize = 144;
 const MENUBAR_HEIGHT: f32 = 20.0;
+const RECENT_ROMS_LENGTH: usize = 5;
 
 #[derive(Clone, PartialEq)]
 pub struct Palette {
@@ -100,20 +101,30 @@ pub struct EguiApp {
 	timer_subsystem: TimerSubsystem,
 	start: u64,
 	end: u64,
+	recent_roms: Vec<PathBuf>,
 }
 
 impl EguiApp {
-	pub fn new(_cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, scale: Box<f32>, timer: TimerSubsystem,
+	pub fn new(cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, scale: Box<f32>, timer: TimerSubsystem,
 			   path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
 		let gb = Emulator::new(path_buf, callback);
 		
 		let start = timer.performance_counter();
 		let end = timer.performance_counter();
+		let recent_roms = eframe::get_value(cc.storage.unwrap(), "recent_roms").unwrap_or_default();
+		let mut palette_index = 0;
+		let palette: Option<String> = eframe::get_value(cc.storage.unwrap(), "palette");
+		if let Some(palette_name) = palette {
+			let index = palettes.iter().position(|p| p.name == palette_name);
+			if let Some(index) = index {
+				palette_index = index;
+			}
+		}
 		
 		EguiApp {
 			gb,
 			palettes,
-			palette_index: 0,
+			palette_index,
 
 			scale: *scale,
 			exit_program: false,
@@ -122,6 +133,7 @@ impl EguiApp {
 			timer_subsystem: timer,
 			start,
 			end,
+			recent_roms,
 		}
     }
 
@@ -194,11 +206,17 @@ impl EguiApp {
 		}
 	}
 
+	fn save_palette(&self, frame: &mut eframe::Frame) {
+		if let Some(storage) = frame.storage_mut() {
+			eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
+			storage.flush();
+		}
+	}
 }
 
 impl eframe::App for EguiApp {
 	
-	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+	fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
 		self.start_timer();
 		let mut input = Input::new();
 		let mut emulator_input = EmulatorInput::new();
@@ -229,10 +247,30 @@ impl eframe::App for EguiApp {
 							.add_filter("Game Boy", &["gb", "gbc", "bin"])
 							.pick_file();
 						if let Some(path) = file {
-							self.gb.load(path);
+							self.gb.load(path.clone());
+							
+							if !self.recent_roms.contains(&path) {
+								if self.recent_roms.len() > RECENT_ROMS_LENGTH {
+									self.recent_roms.remove(0);
+								}
+								self.recent_roms.push(path.clone());
+							}
+							
+							// Update the storage
+							if let Some(storage) = frame.storage_mut() {
+                                eframe::set_value(storage, "recent_roms", &self.recent_roms);
+                                storage.flush();
+                            }
 						}
 						ui.close_menu();
 					}
+					ui.menu_button("Recent Files", |ui| {
+						for rom_path in self.recent_roms.clone().iter().rev() {
+							if ui.button(rom_path.file_name().unwrap().to_str().unwrap()).clicked() {
+								self.gb.load(rom_path.to_path_buf());
+							}
+						}
+					});
 				});
 				// Options
 				ui.menu_button("Options", |ui| {
@@ -253,6 +291,7 @@ impl eframe::App for EguiApp {
 							if ui.radio_value(&mut self.palette_index,
 											  i, &self.palettes[i].name).clicked() {
 								self.palette_index = i;
+								self.save_palette(frame);
 							}
 						}
 					});
@@ -304,8 +343,12 @@ impl eframe::App for EguiApp {
 					}
 				})
 			});
-		
 		// self.print_fps();
 		ctx.request_repaint();
-   }
+	}
+
+	fn save(&mut self, storage: &mut dyn Storage) {
+		eframe::set_value(storage, "recent_roms", &self.recent_roms);
+		eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
+	}
 }
