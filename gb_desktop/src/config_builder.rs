@@ -39,6 +39,7 @@ fn get_palette_from_config(config: &Config, name: &str) -> Palette {
 	let color3 = hex_to_rgb(&palette_colors[3]).unwrap_or((0, 0, 0));
 
 	Palette {
+		name: name.to_string().replace("_", " "),
 		colors: [color0, color1, color2, color3]
 	}
 }

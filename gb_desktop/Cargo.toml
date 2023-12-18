@@ -15,3 +15,4 @@ egui = "0.18"
 
 rfd = "0.12"
 pollster = "0.2"
+winit = "0.26.0"

@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui::{Color32, Frame, InputState, Key, Vec2};
+use egui::{Color32, Frame, InputState, Key, Vec2, ViewportCommand};
 use rfd::FileDialog;
 
 use sdl2::audio::{AudioQueue, AudioSpecDesired};
@@ -7,6 +7,7 @@ use sdl2::TimerSubsystem;
 use std::env;
 use std::time::Duration;
 use std::path::PathBuf;
+use winit::event_loop::EventLoop;
 
 use gb_core::color::Color as LogicalColor;
 use gb_core::emulator::Emulator;
@@ -16,13 +17,24 @@ use crate::config_builder::get_all_palettes;
 
 const GB_WIDTH: usize = 160;
 const GB_HEIGHT: usize = 144;
+const MENUBAR_HEIGHT: f32 = 20.0;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Palette {
+	pub name: String,
 	pub colors: [(u8, u8, u8); 4],
 }
 
 pub fn run_app() {
+	// Quickly get the display's DPI
+	let event_loop = EventLoop::new();
+	let window = winit::window::WindowBuilder::new()
+        .with_visible(false)
+        .build(&event_loop)
+        .expect("Failed to create window");
+	let dpi_factor = window.scale_factor() as f32;
+	drop(window);
+	
 	let sdl_context = sdl2::init().unwrap();
 	let timer_subsystem = sdl_context.timer().unwrap();
 	
@@ -44,11 +56,14 @@ pub fn run_app() {
 	});
 
 	let palettes = get_all_palettes();
+	let scale = Box::new(4.0); // Default scale
 	
 	let native_options = eframe::NativeOptions {
 		viewport: egui::ViewportBuilder::default()
 			.with_active(true)
-			.with_inner_size([(320) as f32, (312) as f32])
+			// 20 is a magic number, the menu bar's height
+			.with_inner_size([(GB_WIDTH as f32 * *scale) / dpi_factor,
+							  ((GB_HEIGHT as f32 * *scale) / dpi_factor) + 20 as f32])
 			.with_resizable(false),
 		vsync: false, 
 		centered: true,
@@ -57,14 +72,17 @@ pub fn run_app() {
 	
 	let _ = eframe::run_native("Rugby", native_options,
 							   Box::new(|cc| {
-								   cc.egui_ctx.set_pixels_per_point(1.0);
+								   let ppp = cc.egui_ctx.native_pixels_per_point();
+								   if let Some(value) = ppp {
+									   cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize(
+										   Vec2::new((GB_WIDTH as f32 * *scale) / value, (GB_HEIGHT as f32 * *scale) / value + MENUBAR_HEIGHT)));
+								   }
 								   
 								   let args: Vec<String> = env::args().collect();
 								   let first_arg = &args[1];
-
 								   let file_path = PathBuf::from(first_arg);
 								   
-								   Box::new(EguiApp::new(cc, palettes, timer_subsystem, file_path, callback))
+								   Box::new(EguiApp::new(cc, palettes, scale, timer_subsystem, file_path, callback))
 							   })
 	);
 }
@@ -72,19 +90,21 @@ pub fn run_app() {
 pub struct EguiApp {
 	gb: Emulator,
 	palettes: Vec<Palette>,
-	current_palette_index: usize,
+	palette_index: usize,
 
+	scale: f32,
+	exit_program: bool,
 	toggle_mute: bool,
 	show_palette_window: bool,
 	
 	timer_subsystem: TimerSubsystem,
 	start: u64,
 	end: u64,
-	first_frame: bool,
 }
 
 impl EguiApp {
-	pub fn new(_cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, timer: TimerSubsystem, path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
+	pub fn new(_cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, scale: Box<f32>, timer: TimerSubsystem,
+			   path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
 		let gb = Emulator::new(path_buf, callback);
 		
 		let start = timer.performance_counter();
@@ -93,14 +113,15 @@ impl EguiApp {
 		EguiApp {
 			gb,
 			palettes,
-			current_palette_index: 0,
+			palette_index: 0,
 
+			scale: *scale,
+			exit_program: false,
 			toggle_mute: false,
 			show_palette_window: false,
 			timer_subsystem: timer,
 			start,
 			end,
-			first_frame: true,
 		}
     }
 
@@ -140,6 +161,10 @@ impl EguiApp {
 			emulator_input.toggle_mute = true;
 			self.toggle_mute = false;
 		}
+		if self.exit_program {
+			emulator_input.exit = true;
+			self.exit_program = false;
+		}
 		
 		(input, emulator_input)
 	}
@@ -160,7 +185,7 @@ impl EguiApp {
 
 	// Returns a RGB color from the Emulators logical color
 	fn get_color(&self, logcolor: &LogicalColor) -> (u8, u8, u8) {
-		let i = self.current_palette_index;
+		let i = self.palette_index;
 		match logcolor {
 			LogicalColor::White => self.palettes[i].colors[0],
 			LogicalColor::LightGray => self.palettes[i].colors[1],
@@ -209,53 +234,76 @@ impl eframe::App for EguiApp {
 						ui.close_menu();
 					}
 				});
-				if ui.button("Palette").clicked() {
-					self.show_palette_window = !self.show_palette_window;
-				}
-				if ui.button("Mute").clicked() {
-					self.toggle_mute = true;
+				// Options
+				ui.menu_button("Options", |ui| {
+					ui.menu_button("Scaling", |ui| {
+						for i in 1..=5 {
+							if ui.radio_value(&mut self.scale,
+											  i as f32, format!("{}x", i)).clicked() {
+								self.scale = i as f32;
+								ctx.send_viewport_cmd(ViewportCommand::InnerSize(
+									Vec2::new((GB_WIDTH as f32 * self.scale) / ctx.pixels_per_point()
+											  , (GB_HEIGHT as f32 * self.scale) / ctx.pixels_per_point()
+												 + (MENUBAR_HEIGHT))));
+							}
+						}
+					});
+					ui.menu_button("Palettes", |ui| {
+						for i in 0..self.palettes.len() {
+							if ui.radio_value(&mut self.palette_index,
+											  i, &self.palettes[i].name).clicked() {
+								self.palette_index = i;
+							}
+						}
+					});
+					if ui.button("Palette Picker").clicked() {
+						self.show_palette_window = !self.show_palette_window;
+					}
+					if ui.button("Mute").clicked() {
+						self.toggle_mute = true;
+					}
+				});
+				// Exit
+				if ui.button("Exit").clicked() {
+					self.exit_program = true;
 				}
 			});
 		});
 		
 		egui::CentralPanel::default().frame(Frame::none()).show(ctx, |ui| {
-			if self.first_frame {
-				self.first_frame = false;
-				// ctx.set_pixels_per_point(1.0);
-			}
-
 			let size = [GB_WIDTH as _, GB_HEIGHT as _];
 			let image = egui::ColorImage::from_rgb(size, &buffer);
 		   
 			let texture_handle = ui.ctx().load_texture("Game screen", image, egui::TextureOptions::NEAREST);
-			let scaled_size = Vec2::new(GB_WIDTH as f32 * 2.0, GB_HEIGHT as f32 * 2.0);
+			let scaled_size = Vec2::new((GB_WIDTH as f32 * self.scale) / ctx.pixels_per_point(),
+										(GB_HEIGHT as f32 * self.scale) / ctx.pixels_per_point());
 			ui.image((texture_handle.id(), scaled_size));
 		});
 
 		// Palette window
-		egui::Window::new("Palette")
+		egui::Window::new("Palette Picker")
 			.open(&mut self.show_palette_window)
 			.show(ctx, |ui| {
-			let current_palette = &self.palettes[self.current_palette_index];
-			ui.horizontal(|ui| {
-
-				if ui.button("<").clicked() {
-					self.current_palette_index = match self.current_palette_index {
-						0 => self.palettes.len() - 1,
-						_ => self.current_palette_index - 1,
-					};
-				}
-				for &color in &current_palette.colors {
-					let (r, g, b) = color;
-					let color32 = Color32::from_rgb(r, g, b);
-					let rect = ui.allocate_space(egui::Vec2::splat(35.0));
-					ui.painter().rect_filled(rect.1, 0.0, color32);
-				}
-                if ui.button(">").clicked() {
-					self.current_palette_index = (self.current_palette_index + 1) % self.palettes.len();
-                }
-			})
-		});
+				let current_palette = &self.palettes[self.palette_index];
+				ui.label(&current_palette.name);
+				ui.horizontal(|ui| {
+					if ui.button("<").clicked() {
+						self.palette_index = match self.palette_index {
+							0 => self.palettes.len() - 1,
+							_ => self.palette_index - 1,
+						};
+					}
+					for &color in &current_palette.colors {
+						let (r, g, b) = color;
+						let color32 = Color32::from_rgb(r, g, b);
+						let rect = ui.allocate_space(Vec2::splat(20.0));
+						ui.painter().rect_filled(rect.1, 0.0, color32);
+					}
+					if ui.button(">").clicked() {
+						self.palette_index = (self.palette_index + 1) % self.palettes.len();
+					}
+				})
+			});
 		
 		// self.print_fps();
 		ctx.request_repaint();

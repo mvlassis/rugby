@@ -1,10 +1,12 @@
 [frontend]
-default_palette = "bgb"
-palettes_available = ["bgb", "ice_cream_gb", "octo", "2bit_demichrome", "mist_gb"]
+default_palette = "BGB"
+palettes_available = ["BGB", "Hollow", "Ice_Cream_GB", "Monochrome", "Octo", "2Bit_Demichrome", "Mist_GB"]
 
-bgb = ["#e0f8d0", "#88c070", "#346856", "#081820"]
-octo = ["#ffcc00", "#ff6600", "#996600", "#662200"]
-ice_cream_gb = ["#fff6d3", "#f9a875", "#eb6b6f", "#7c3f58"]
-2bit_demichrome = ["#e9efec", "#a0a08b", "#555568", "#211e20"]
-mist_gb = ["#c4f0c2", "#5ab9a8", "#1e606e", "#2d1b00"]
+BGB = ["#e0f8d0", "#88c070", "#346856", "#081820"]
+Hollow = ["#fafbf6", "#c6b7be", "#565a75", "#0f0f1b"]
+Monochrome = ["#ffffff", "#b8b8b8", "#686868", "#000000"]
+Octo = ["#ffcc00", "#ff6600", "#996600", "#662200"]
+Ice_Cream_GB = ["#fff6d3", "#f9a875", "#eb6b6f", "#7c3f58"]
+2Bit_Demichrome = ["#e9efec", "#a0a08b", "#555568", "#211e20"]
+Mist_GB = ["#c4f0c2", "#5ab9a8", "#1e606e", "#2d1b00"]
 
