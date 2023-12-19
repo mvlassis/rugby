@@ -4,6 +4,7 @@ use super::BANK_SIZE;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
 
 // Set bit at a specific position to a specific bit value
 fn set_bit(value: usize, bit_position: u8, bit_value: u8) -> usize {
@@ -15,7 +16,9 @@ fn set_bit(value: usize, bit_position: u8, bit_value: u8) -> usize {
 	new_value
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct MBC5 {
+	#[serde(skip)]
     rom: Vec<u8>,
     ram: Vec<u8>,
     
@@ -153,5 +156,24 @@ impl Cartridge for MBC5 {
 
 	fn update_clock(&mut self) {
 		
+	}
+
+	fn create_state(&self) -> String {
+		serde_json::to_string(&self).unwrap()
+	}
+
+	fn load_state(&mut self, json_string: &str) {
+		match serde_json::from_str::<MBC5>(json_string) {
+            Ok(state) => {
+				self.ram = state.ram.clone();
+				self.ram_enable = state.ram_enable;
+				self.rom_bank_number = state.rom_bank_number;
+				self.ram_bank_number = state.ram_bank_number;
+				self.rom_bit_mask = state.rom_bit_mask;
+            },
+            Err(e) => {
+                eprintln!("Failed to deserialize state: {}", e);
+            }
+        }
 	}
 }

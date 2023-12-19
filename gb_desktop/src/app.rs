@@ -101,7 +101,8 @@ pub struct EguiApp {
 	active_channels: [bool; 4],
 	toggle_channels: [bool; 4],
 	show_palette_window: bool,
-	
+	select_save_state: (bool, usize),
+	select_load_state: (bool, usize),
 	timer_subsystem: TimerSubsystem,
 	start: u64,
 	end: u64,
@@ -138,6 +139,8 @@ impl EguiApp {
 			active_channels: [true; 4],
 			toggle_channels: [false; 4],
 			show_palette_window: false,
+			select_save_state: (false, 0),
+			select_load_state: (false, 0),
 			timer_subsystem: timer,
 			start,
 			end,
@@ -176,6 +179,12 @@ impl EguiApp {
 		if input_state.key_down(Key::X) {
 			input.select = true;
 		}
+		if input_state.key_pressed(Key::O) {
+			emulator_input.save_state = true;
+		}
+		if input_state.key_pressed(Key::P) {
+			emulator_input.load_state = true;
+		}
 
 		if self.toggle_mute {
 			emulator_input.toggle_mute = true;
@@ -185,12 +194,20 @@ impl EguiApp {
 			emulator_input.exit = true;
 			self.exit_program = false;
 		}
-
+		
 		for i in 0..=3 {
 			if self.toggle_channels[i] {
 				emulator_input.toggle_channel[i] = true;
 				self.toggle_channels[i] = false;
 			}
+		}
+		if self.select_save_state.0 {
+			emulator_input.select_save_state = (true, self.select_save_state.1);
+			self.select_save_state = (false, 0);
+		}
+		if self.select_load_state.0 {
+			emulator_input.select_load_state = (true, self.select_load_state.1);
+			self.select_load_state = (false, 0);
 		}
 		(input, emulator_input)
 	}
@@ -307,6 +324,7 @@ impl eframe::App for EguiApp {
 						self.show_palette_window = !self.show_palette_window;
 					}
 				});
+				// Audio
 				ui.menu_button("Audio", |ui| {
 					if ui.checkbox(&mut self.audio_on, "Toggle Audio").clicked() {
 						self.toggle_mute = true;
@@ -316,6 +334,25 @@ impl eframe::App for EguiApp {
 							if ui.checkbox(&mut self.active_channels[i],
 										   format!("Channel {}", i)).clicked() {
 								self.toggle_channels[i] = true;
+							}
+						}
+					});
+				});
+				// Save
+				ui.menu_button("Save", |ui| {
+					ui.menu_button("Save State", |ui| {
+						for i in 0..=3 {
+							let save_status = self.gb.select_save_states[i] != "";
+							if ui.selectable_label(save_status, format!("Save to State Slot {}", i)).clicked() {
+								self.select_save_state = (true, i);
+							}
+						}
+					});
+					ui.menu_button("Load State", |ui| {
+						for i in 0..=3 {
+							let save_status = self.gb.select_save_states[i] != "";
+							if ui.selectable_label(save_status, format!("Load from State Slot {}", i)).clicked() {
+								self.select_load_state = (true, i);
 							}
 						}
 					});

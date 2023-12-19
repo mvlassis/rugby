@@ -2,6 +2,7 @@ use crate::apu::APU;
 use crate::cartridge::Cartridge;
 use crate::mmu::MMU;
 use crate::ppu::PPU;
+use crate::save_state::BusState;
 
 pub struct Bus {
 	pub apu: APU,
@@ -140,5 +141,21 @@ impl Bus {
 			_ => panic!("Set bit"),
 		};
 		new_value
+	}
+
+	// Creates a BusState from the Bus
+	pub fn create_state(&self) -> BusState {
+		BusState {
+			mmu_state: self.mmu.create_state(),
+			ppu_state: self.ppu.create_state(),
+			apu_state: self.apu.create_state(),
+		}
+	}
+
+	// Loads a BusState to the Bus
+	pub fn load_state(&mut self, bus_state: BusState) {
+		self.mmu.load_state(bus_state.mmu_state);
+		self.ppu.load_state(bus_state.ppu_state);
+		self.apu.load_state(bus_state.apu_state);
 	}
 }

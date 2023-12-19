@@ -1,5 +1,6 @@
 mod opcodes;
 use crate::bus::Bus;
+use crate::save_state::CPUState;
 
 const EXPANDED_INSTRUCTION_OPCODE: u8 = 0xCB;
 
@@ -283,4 +284,27 @@ impl CPU {
 		bit
 	}
 
+	// Creates a CPUState from the CPU
+	pub fn create_state(&self) -> CPUState {
+		CPUState {
+			cpu_registers: self.cpu_registers.clone(),
+			pc: self.pc,
+			mcycles: self.mcycles,
+			ime: self.ime,
+			ime_scheduled: self.ime_scheduled,
+			halt_mode: self.halt_mode,
+			rtc_oscillator: self.rtc_oscillator,
+		}
+	}
+
+	// Loads a CPUState to the CPU
+	pub fn load_state(&mut self, cpu_state: CPUState) {
+		self.cpu_registers = cpu_state.cpu_registers.clone();
+		self.pc = cpu_state.pc;
+		self.mcycles = cpu_state.mcycles;
+		self.ime = cpu_state.ime;
+		self.ime_scheduled = cpu_state.ime_scheduled;
+		self.halt_mode = cpu_state.halt_mode;
+		self.rtc_oscillator = cpu_state.rtc_oscillator;
+	}
 }

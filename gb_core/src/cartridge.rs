@@ -63,4 +63,7 @@ pub trait Cartridge {
     fn write(&mut self, address: u16, value: u8);
 	fn save(&mut self);
 	fn update_clock(&mut self);
+
+	fn create_state(&self) -> String;
+	fn load_state(&mut self, json_string: &str);
 }

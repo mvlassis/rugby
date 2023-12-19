@@ -1,3 +1,5 @@
+use serde::{Serialize, Deserialize};
+
 const WAVE_FORMS: [[u8; 8]; 4] = [
 	[0, 0, 0, 0, 0, 0, 0, 1],
 	[1, 0, 0, 0, 0, 0, 0, 1],
@@ -5,6 +7,8 @@ const WAVE_FORMS: [[u8; 8]; 4] = [
 	[0, 1, 1, 1, 1, 1, 1, 0],
 ];
 
+#[derive(Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct SoundRegisters {
 	pub nrx0: u8, // Channel specific features
 	pub nrx1: u8, // Length timer
@@ -24,11 +28,14 @@ impl SoundRegisters {
 }
 
 #[derive(Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize)]
 pub enum ChannelType {
 	Pulse1,
 	Pulse2,
 }
 
+#[derive(Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct PulseChannel {
 	pub reg: SoundRegisters,
 	pub channel: ChannelType,
@@ -233,6 +240,8 @@ impl PulseChannel {
 	}
 }
 
+#[derive(Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct WaveChannel {
 	pub reg: SoundRegisters,
 	pub wave_pattern: [u8; 16],
@@ -378,6 +387,9 @@ impl WaveChannel {
 	}
 }
 
+
+#[derive(Clone)]
+#[derive(Serialize, Deserialize)]
 pub struct NoiseChannel {
 	pub reg: SoundRegisters,
 	lsfr: u16,

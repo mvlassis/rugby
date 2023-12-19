@@ -4,7 +4,10 @@ use super::BANK_SIZE;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
 
+#[derive(Clone)]
+#[derive(Serialize, Deserialize)]
 struct Clock {
 	seconds: u8,
 	minutes: u8,
@@ -17,7 +20,6 @@ struct Clock {
 }
 
 impl Clock {
-
 	pub fn new(save_path: Option<PathBuf>) -> Self {
 		let mut base = 0;
         let mut byte_array = [0; 8];
@@ -119,7 +121,9 @@ fn set_bit(value: u8, bit_position: u8, bit_value: u8) -> u8 {
 	new_value
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct MBC3 {
+	#[serde(skip)]
     rom: Vec<u8>,
     ram: Vec<u8>,
     
@@ -311,4 +315,27 @@ impl Cartridge for MBC3 {
 			clock.increment_seconds();
 		}
 	}
+
+	fn create_state(&self) -> String {
+		serde_json::to_string(&self).unwrap()
+	}
+
+	fn load_state(&mut self, json_string: &str) {
+		match serde_json::from_str::<MBC3>(json_string) {
+            Ok(state) => {
+				self.ram = state.ram.clone();
+				self.ram_timer_enable = state.ram_timer_enable;
+				self.rom_bank_number = state.rom_bank_number;
+				self.ram_bank_number = state.ram_bank_number;
+				if let Some(clock) = self.clock.as_mut() {
+					*clock = state.clock.unwrap().clone();
+				}
+				self.latch_clock_00= state.latch_clock_00;
+            },
+            Err(e) => {
+                eprintln!("Failed to deserialize state: {}", e);
+            }
+        }
+	}
+	
 }

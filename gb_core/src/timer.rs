@@ -1,3 +1,7 @@
+use serde::{Serialize, Deserialize};
+
+#[derive(Clone, Copy)]
+#[derive(Serialize, Deserialize)]
 pub struct Timer {
 	internal_timer: u16,
 	previous_and: u8,

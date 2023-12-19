@@ -1,12 +1,13 @@
-use std::fs::File;
+use std::fs::OpenOptions;
 use std::io::Write;
 use crate::cartridge::Cartridge;
 use crate::input::Input;
+use crate::save_state::MMUState;
 use crate::timer::Timer;
 
 const MEMORY_SIZE: usize = 65536;
 
-// Gameboy does not actually have an MMU, don't tell the Nintendo ninj
+// Gameboy does not actually have an MMU, don't tell the Nintendo ninjas
 pub struct MMU {
 	pub cartridge: Box<dyn Cartridge>,
 	wram:         [u8; 8192],
@@ -18,14 +19,13 @@ pub struct MMU {
 	input: Input,
 	prev_p1: u8,
 	pub joypad_interrupt: bool,
-	serial_buffer: [u8; 100], // TODO: size
-	file: File,
+	serial_buffer: [u8; 100], // TODO: properly implement
+	serial_file_path: String,
 }
 
 impl MMU {
 	pub fn new(cartridge: Box<dyn Cartridge>) -> Self {
-		let file_path = "output.txt";
-		let file = File::create(file_path).unwrap();
+		let serial_file_path = "output.txt";
 		MMU {
 			cartridge,
 			wram: [0; 8192],
@@ -38,7 +38,7 @@ impl MMU {
 			prev_p1: 0xCF,
 			joypad_interrupt: false,
 			serial_buffer: [0; 100],
-			file,
+			serial_file_path: serial_file_path.to_string(),
 		}
 	}
 
@@ -96,7 +96,10 @@ impl MMU {
 					}
 					0xFF01 => self.serial_buffer[0] = value,
 					0xFF02 => {
-						if let Err(e) = write!(self.file, "{}",
+						let mut file = OpenOptions::new()
+							.create(true).write(true).append(true)
+							.open(&self.serial_file_path).unwrap();
+						if let Err(e) = write!(file, "{}",
 											   self.serial_buffer[0] as char) {
 							eprintln!("Writing error: {}", e.to_string())
 						}
@@ -110,7 +113,7 @@ impl MMU {
 			},
 			0xFF80..=0xFFFE => self.hram[address as usize - 0xFF80] = value,
 			0xFFFF => self.ie_register = value,
-			_ => panic!("set_byte(): Out of memory at address: {:04X}", address),
+			_ => unreachable!("MMU::set_byte(): Out of memory at address: {:04X}", address),
 		}
 	}
 
@@ -181,5 +184,35 @@ impl MMU {
 			_ => unreachable!("MMU::set_bit()"),
 		};
 		new_value
+	}
+
+	// Creates an MMU state from the MMU
+	pub fn create_state(&self) -> MMUState {
+		MMUState {
+			wram: self.wram.clone(),
+			io_registers: self.io_registers.clone(),
+			hram: self.hram.clone(),
+			ie_register: self.ie_register,
+			timer: self.timer.clone(),
+			input: self.input.clone(),
+			prev_p1: self.prev_p1,
+			joypad_interrupt: self.joypad_interrupt,
+			serial_buffer: self.serial_buffer.clone(),
+			serial_file_path: self.serial_file_path.clone(),
+		}
+	}
+
+	// Loads an MMUState to the MMU
+	pub fn load_state(&mut self, mmu_state: MMUState) {
+		self.wram = mmu_state.wram.clone();
+		self.io_registers = mmu_state.io_registers.clone();
+		self.hram = mmu_state.hram.clone();
+		self.ie_register = mmu_state.ie_register;
+		self.timer = mmu_state.timer.clone();
+		self.input = mmu_state.input.clone();
+		self.prev_p1 = mmu_state.prev_p1;
+		self.joypad_interrupt = mmu_state.joypad_interrupt;
+		self.serial_buffer = mmu_state.serial_buffer.clone();
+		self.serial_file_path = mmu_state.serial_file_path.clone();
 	}
 }

@@ -1,4 +1,6 @@
+use serde::{Serialize, Deserialize};
 use crate::color::Color;
+use crate::save_state::PPUState;
 
 const OAM_SEARCH_DOTS: u16 = 80;
 const PIXEL_TRANSFER_DOTS: u16 = 172;
@@ -8,8 +10,9 @@ const LINE_DOTS: u16 = 456;
 pub const GB_WIDTH: usize = 160;
 pub const GB_HEIGHT: usize = 144;
 
-#[derive(PartialEq)]
-enum Mode {
+#[derive(Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize)]
+pub enum Mode {
     OAMSearch,
     PixelTransfer,
     HBlank,
@@ -17,7 +20,8 @@ enum Mode {
 }
 
 #[derive(Clone, Copy)]
-struct Object {
+#[derive(Serialize, Deserialize)]
+pub struct Object {
     y_position: u8,
     x_position: u8,
     tile_index: u8,
@@ -607,4 +611,62 @@ impl PPU {
         };
         new_value
     }
+
+	// Creates a PPUState from the PPU
+	pub fn create_state(&self) -> PPUState {
+		PPUState {
+			lcdc: self.lcdc,
+			ly: self.ly,
+			lyc: self.lyc,
+			stat: self.stat,
+			scy: self.scy,
+			scx: self.scx,
+			wy: self.wy,
+			wx: self.wx,
+			window_line_counter: self.window_line_counter,
+			window_in_frame: self.window_in_frame,
+			window_in_line: self.window_in_line,
+			object_buffer: self.object_buffer.clone(),
+			bgp: self.bgp,
+			obp0: self.obp0,
+			obp1: self.obp1,
+			vram: self.vram.clone(),
+			oam: self.oam.clone(),
+			mode: self.mode,
+			current_clock: self.current_clock,
+			vblank_interrupt: self.vblank_interrupt,
+			stat_interrupt: self.stat_interrupt,
+			prev_interrupt_line: self.prev_interrupt_line,
+			frame_ready: self.frame_ready,
+			ppu_disabled: self.ppu_disabled,
+		}
+	}
+
+	// Loads a PPUState to the PPU
+	pub fn load_state(&mut self, ppu_state: PPUState) {
+		self.lcdc = ppu_state.lcdc;
+		self.ly = ppu_state.ly;
+		self.lyc = ppu_state.lyc;
+		self.stat = ppu_state.stat;
+		self.scy = ppu_state.scy;
+		self.scx = ppu_state.scx;
+		self.wy = ppu_state.wy;
+		self.wx = ppu_state.wx;
+		self.window_line_counter = ppu_state.window_line_counter;
+		self.window_in_frame = ppu_state.window_in_frame;
+		self.window_in_line = ppu_state.window_in_line;
+		self.object_buffer = ppu_state.object_buffer.clone();
+		self.bgp = ppu_state.bgp;
+		self.obp0 = ppu_state.obp0;
+		self.obp1 = ppu_state.obp1;
+		self.vram = ppu_state.vram.clone();
+		self.oam = ppu_state.oam.clone();
+		self.mode = ppu_state.mode;
+		self.current_clock = ppu_state.current_clock;
+		self.vblank_interrupt = ppu_state.vblank_interrupt;
+		self.stat_interrupt = ppu_state.stat_interrupt;
+		self.prev_interrupt_line = ppu_state.prev_interrupt_line;
+		self.frame_ready = ppu_state.frame_ready;
+		self.ppu_disabled = ppu_state.ppu_disabled;
+	}
 }

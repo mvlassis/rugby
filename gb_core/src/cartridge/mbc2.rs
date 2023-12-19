@@ -4,10 +4,14 @@ use super::BANK_SIZE;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
+use serde::{Serialize, Deserialize};
+use serde_big_array::BigArray;
 
-
+#[derive(Serialize, Deserialize)]
 pub struct MBC2 {
+	#[serde(skip)]
     rom: Vec<u8>,
+	#[serde(with = "BigArray")]
     ram: [u8; 512],
     
     ram_enable: bool,
@@ -128,5 +132,22 @@ impl Cartridge for MBC2 {
 
 	fn update_clock(&mut self) {
 		
+	}
+
+	fn create_state(&self) -> String {
+		serde_json::to_string(&self).unwrap()
+	}
+
+	fn load_state(&mut self, json_string: &str) {
+		match serde_json::from_str::<MBC2>(json_string) {
+            Ok(state) => {
+				self.ram = state.ram.clone();
+				self.ram_enable = state.ram_enable;
+				self.rom_bank_number = state.rom_bank_number;
+            },
+            Err(e) => {
+                eprintln!("Failed to deserialize state: {}", e);
+            }
+        }
 	}
 }

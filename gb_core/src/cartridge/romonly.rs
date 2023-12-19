@@ -39,4 +39,12 @@ impl Cartridge for RomOnly {
 	fn update_clock(&mut self) {
 		
 	}
+
+	fn create_state(&self) -> String {
+		"".to_string()
+	}
+
+	fn load_state(&mut self, _json_string: &str) {
+		
+	}
 }

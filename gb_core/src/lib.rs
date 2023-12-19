@@ -7,4 +7,5 @@ mod cartridge;
 mod cpu;
 mod mmu;
 mod ppu;
+mod save_state;
 mod timer;

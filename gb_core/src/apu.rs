@@ -1,15 +1,16 @@
-mod channels;
+pub mod channels;
 
 use crate::apu::channels::ChannelType;
 use crate::apu::channels::PulseChannel;
 use crate::apu::channels::WaveChannel;
 use crate::apu::channels::NoiseChannel;
+use crate::save_state::APUState;
 
-const AUDIO_BUFFER_SIZE: usize = 1024;
+pub const AUDIO_BUFFER_SIZE: usize = 1024;
 
 pub struct APU {
 	callback: Box<dyn Fn(&[f32])>,
-	pub buffer: Box<[f32; AUDIO_BUFFER_SIZE]>,
+	pub buffer: Vec<f32>,
 	pub buffer_position: usize,
 	pub is_buffer_full: bool,
 	
@@ -39,7 +40,7 @@ impl APU {
 		let channel4 = NoiseChannel::new();
 		APU {
 			callback,
-			buffer: Box::new([0.0; AUDIO_BUFFER_SIZE]),
+			buffer: vec![0.0; AUDIO_BUFFER_SIZE],
 			buffer_position: 0,
 			is_buffer_full: false,
 			
@@ -67,7 +68,7 @@ impl APU {
 		self.channel3 = WaveChannel::new();
 		self.channel4 = NoiseChannel::new();
 
-		self.buffer = Box::new([0.0; AUDIO_BUFFER_SIZE]);
+		self.buffer = vec![0.0; AUDIO_BUFFER_SIZE];
 		self.buffer_position = 0;
 		self.is_buffer_full = false;
 		
@@ -284,6 +285,48 @@ impl APU {
 		} else {
 			false
 		}
+	}
+
+	// Creates an APUState from the APU
+	pub fn create_state(&self) -> APUState {
+		APUState {
+			buffer: self.buffer.clone(),
+			buffer_position: self.buffer_position,
+			is_buffer_full: self.is_buffer_full,
+			channel1: self.channel1.clone(),
+			channel2: self.channel2.clone(),
+			channel3: self.channel3.clone(),
+			channel4: self.channel4.clone(),
+			mute_channels: self.mute_channels.clone(),
+			nr50: self.nr50,
+			nr51: self.nr51,
+			nr52: self.nr52,
+			div_apu: self.div_apu,
+			prev_div_apu: self.prev_div_apu,
+			capacitor: self.capacitor,
+			internal_cycles: self.internal_cycles,
+			is_mute: self.is_mute,
+		}
+	}
+
+	// Loads an APUState to the APU
+	pub fn load_state(&mut self, apu_state: APUState) {
+		self.buffer = apu_state.buffer.clone();
+		self.buffer_position = apu_state.buffer_position;
+		self.is_buffer_full = apu_state.is_buffer_full;
+		self.channel1 = apu_state.channel1.clone();
+		self.channel2 = apu_state.channel2.clone();
+		self.channel3 = apu_state.channel3.clone();
+		self.channel4 = apu_state.channel4.clone();
+		self.mute_channels = apu_state.mute_channels.clone();
+		self.nr50 = apu_state.nr50;
+		self.nr51 = apu_state.nr51;
+		self.nr52 = apu_state.nr52;
+		self.div_apu = apu_state.div_apu;
+		self.prev_div_apu = apu_state.prev_div_apu;
+		self.capacitor = apu_state.capacitor;
+		self.internal_cycles = apu_state.internal_cycles;
+		self.is_mute = apu_state.is_mute;
 	}
 }
 
