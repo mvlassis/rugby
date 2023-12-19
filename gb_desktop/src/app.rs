@@ -68,6 +68,7 @@ pub fn run_app() {
 			.with_resizable(false),
 		vsync: false, 
 		centered: true,
+		persist_window: false,
 		..Default::default()
 	};
 	
@@ -78,7 +79,6 @@ pub fn run_app() {
 									   cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize(
 										   Vec2::new((GB_WIDTH as f32 * *scale) / value, (GB_HEIGHT as f32 * *scale) / value + MENUBAR_HEIGHT)));
 								   }
-								   
 								   let args: Vec<String> = env::args().collect();
 								   let first_arg = &args[1];
 								   let file_path = PathBuf::from(first_arg);
@@ -220,7 +220,6 @@ impl EguiApp {
 }
 
 impl eframe::App for EguiApp {
-	
 	fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
 		self.start_timer();
 		let mut input = Input::new();
@@ -286,7 +285,7 @@ impl eframe::App for EguiApp {
 								ctx.send_viewport_cmd(ViewportCommand::InnerSize(
 									Vec2::new((GB_WIDTH as f32 * self.scale) / ctx.pixels_per_point()
 											  , (GB_HEIGHT as f32 * self.scale) / ctx.pixels_per_point()
-												 + (MENUBAR_HEIGHT))));
+												 + (MENUBAR_HEIGHT + 1.5 * self.scale))));
 							}
 						}
 					});
