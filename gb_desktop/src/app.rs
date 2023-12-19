@@ -94,6 +94,7 @@ pub struct EguiApp {
 	palette_index: usize,
 
 	scale: f32,
+	emulator_playing: bool,
 	exit_program: bool,
 	toggle_mute: bool,
 	audio_on: bool,
@@ -130,6 +131,7 @@ impl EguiApp {
 			palette_index,
 
 			scale: *scale,
+			emulator_playing: true,
 			exit_program: false,
 			toggle_mute: false,
 			audio_on: true,
@@ -228,8 +230,11 @@ impl eframe::App for EguiApp {
 		ctx.input(|i| {
 			(input, emulator_input) = self.handle_input(i);
 		});
-		
-		let screen = self.gb.run(input, Some(emulator_input)).clone();
+
+		let screen = match self.emulator_playing {
+			true => self.gb.run(input, Some(emulator_input)).clone(),
+			false => self.gb.get_screen().clone(),
+		};
 
 		let mut buffer: Vec<u8> = Vec::with_capacity(GB_WIDTH * GB_HEIGHT * 4);
 		for y in 0..GB_HEIGHT {
@@ -277,6 +282,7 @@ impl eframe::App for EguiApp {
 				});
 				// Options
 				ui.menu_button("Options", |ui| {
+					ui.checkbox(&mut self.emulator_playing, "Pause/Resume");
 					ui.menu_button("Scaling", |ui| {
 						for i in 1..=5 {
 							if ui.radio_value(&mut self.scale,

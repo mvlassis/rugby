@@ -74,6 +74,10 @@ impl Emulator {
 			self.current_bg_map  = if self.current_bg_map == 0 {3} else {self.current_bg_map - 1};
 		}
 	}
+
+	pub fn get_screen(&self) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
+		self.bus.ppu.get_screen_buffer()
+	}
 	
 	pub fn get_tilemap(&self) -> [[[Color; 8]; 8]; 384] {
 		self.bus.ppu.get_tilemap()

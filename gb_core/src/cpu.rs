@@ -1,5 +1,4 @@
 mod opcodes;
-
 use crate::bus::Bus;
 
 const EXPANDED_INSTRUCTION_OPCODE: u8 = 0xCB;

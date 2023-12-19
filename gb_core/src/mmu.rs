@@ -1,13 +1,12 @@
 use std::fs::File;
 use std::io::Write;
-
 use crate::cartridge::Cartridge;
 use crate::input::Input;
 use crate::timer::Timer;
 
 const MEMORY_SIZE: usize = 65536;
 
-// Gameboy does not actually have an MMU, don't tell the Nintendo ninjas
+// Gameboy does not actually have an MMU, don't tell the Nintendo ninj
 pub struct MMU {
 	pub cartridge: Box<dyn Cartridge>,
 	wram:         [u8; 8192],

@@ -1,6 +1,5 @@
 // Simple struct thats holds the current input state of the Gameboy
 // Note that true means pressed, false means not pressed
-#[derive(Clone, Copy)]
 pub struct Input {
     pub up: bool,
     pub down: bool,
