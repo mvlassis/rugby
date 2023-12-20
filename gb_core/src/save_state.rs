@@ -8,7 +8,6 @@ use crate::apu::channels::PulseChannel;
 use crate::apu::channels::WaveChannel;
 use crate::apu::channels::NoiseChannel;
 
-
 #[derive(Serialize, Deserialize)]
 pub struct EmulatorState {
 	pub cpu_state: CPUState,
@@ -77,8 +76,7 @@ pub struct PPUState {
     pub vram: [u8; 8192],
 	#[serde(with = "BigArray")]
     pub oam: [u8; 160],
-	// TODO Maybe add screen buffer?
-    // pub screen_buffer: [[Color; GB_WIDTH]; GB_HEIGHT],
+    // pub screen_buffer: Vec<Color>,
     pub mode: Mode,
     pub current_clock: u16,
     pub vblank_interrupt: bool,

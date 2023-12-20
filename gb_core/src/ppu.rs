@@ -48,10 +48,9 @@ pub struct PPU {
     pub bgp: u8,
     pub obp0: u8,
     pub obp1: u8,
-
     pub vram: [u8; 8192],
     oam: [u8; 160],
-    screen_buffer: [[Color; GB_WIDTH]; GB_HEIGHT],
+    pub screen_buffer: [[Color; GB_WIDTH]; GB_HEIGHT],
     mode: Mode,
     current_clock: u16,
     pub vblank_interrupt: bool,
@@ -59,6 +58,7 @@ pub struct PPU {
     prev_interrupt_line: u8,
     pub frame_ready: bool,
 	pub ppu_disabled: bool,
+	active_layers: [bool; 3], // 0: Background, 1: Window, 2: Objects
 }
 
 impl PPU {
@@ -94,6 +94,7 @@ impl PPU {
             prev_interrupt_line: 0,
             frame_ready: false,
 			ppu_disabled: false,
+			active_layers: [true; 3],
         }
     }
 
@@ -129,6 +130,7 @@ impl PPU {
         } 
     }
 
+	// Updates the PPU internal clock
 	fn update_clock(&mut self) {
 		self.current_clock += 1;
 		match self.mode {
@@ -175,7 +177,7 @@ impl PPU {
 	}
 	
     // Returns the screen buffer
-    pub fn get_screen_buffer(&self) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
+    pub fn get_screen_buffer(&self) -> &[[Color; GB_WIDTH]; GB_HEIGHT]{
         &self.screen_buffer
     }
 
@@ -353,7 +355,10 @@ impl PPU {
             let (mut color, bg_color_bits) = self.get_bg_color(x, y);
             if  PPU::get_bit(self.lcdc, 1) == 1 {
                 if let Some(new_color) = self.get_sprite_color(x, y, bg_color_bits) {
-                    color = new_color;
+					// Replace with sprite pixel only if sprites are enabled
+					if self.active_layers[2] == true {
+						color = new_color;
+					}
                 }
             };
             if PPU::get_bit(self.lcdc, 7) == 0 {
@@ -440,7 +445,11 @@ impl PPU {
         if window_enabled {
             self.window_in_line = true
         }
-
+		let window_enabled = window_enabled && self.active_layers[1];
+		if !window_enabled && !self.active_layers[0] {
+			return (self.get_bgp_color(0), 0);
+		}
+		
         // Get the correct tilemap
         let tile_map = match window_enabled {
             true => PPU::get_bit(self.lcdc, 6),
@@ -612,6 +621,11 @@ impl PPU {
         new_value
     }
 
+	// Toggles the visibility of a given layer 
+	pub fn toggle_layer(&mut self, i: usize) {
+		self.active_layers[i] = !self.active_layers[i];
+	}
+	
 	// Creates a PPUState from the PPU
 	pub fn create_state(&self) -> PPUState {
 		PPUState {
@@ -632,6 +646,9 @@ impl PPU {
 			obp1: self.obp1,
 			vram: self.vram.clone(),
 			oam: self.oam.clone(),
+			// screen_buffer: vec![vec![Color::Black; 1]; 5],
+			// screen_buffer: self.screen_buffer.iter()
+			// 	.flat_map(|row| row.iter().copied()).collect(),
 			mode: self.mode,
 			current_clock: self.current_clock,
 			vblank_interrupt: self.vblank_interrupt,

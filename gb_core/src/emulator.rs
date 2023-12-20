@@ -1,5 +1,7 @@
+use std::collections::VecDeque;
 use std::process;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use crate::bus::Bus;
 use crate::cartridge::load;
@@ -11,10 +13,15 @@ use crate::ppu::GB_WIDTH;
 use crate::ppu::GB_HEIGHT;
 use crate::save_state::EmulatorState;
 
+const REWIND_STACK_CAPACITY: usize = 300; // 60 equals about 1 second
+const REWIND_TIME: u64 = 5; 
+
 pub struct Emulator {
 	cpu: CPU,
 	bus: Bus,
 
+	rewind_stack: VecDeque<String>,
+	rewind_screens: VecDeque<[[Color; GB_WIDTH]; GB_HEIGHT]>,
 	pub save_states: Vec<String>,
 	pub select_save_states: Vec<String>,
 	
@@ -34,6 +41,8 @@ impl Emulator {
 			cpu,
 			bus,
 
+			rewind_stack: VecDeque::with_capacity(REWIND_STACK_CAPACITY),
+			rewind_screens: VecDeque::with_capacity(REWIND_STACK_CAPACITY),
 			save_states: Vec::new(),
 			select_save_states: vec!["".to_string(); 4],
 			current_bg_map: 0
@@ -53,14 +62,23 @@ impl Emulator {
 
 	// Run instructions until we are ready to display a new frame
 	pub fn run(&mut self, input: Input, emulator_input: Option<EmulatorInput>) -> &[[Color; GB_WIDTH]; GB_HEIGHT] {
-		if let Some(emulator_input) = emulator_input {
-			self.update_config(emulator_input);
+		if let Some(emu_input) = emulator_input {
+			self.update_config(emu_input);
+		}
+
+		// Rewind
+		if emulator_input.is_some() && emulator_input.unwrap().rewind {
+			self.pop_rewind_stack();
+			self.bus.ppu.frame_ready = false;
+			std::thread::sleep(Duration::from_millis(REWIND_TIME));
+			return self.bus.ppu.get_screen_buffer();
 		}
 		
 		self.bus.mmu.store_input(input);
 		while self.bus.ppu.frame_ready == false {
 			self.cpu.step(&mut self.bus);			
 		}
+		self.push_rewind_stack();
 		self.bus.ppu.frame_ready = false;
 		self.bus.ppu.get_screen_buffer()
 	}
@@ -69,7 +87,7 @@ impl Emulator {
 		self.bus.ppu.get_screen_buffer()
 	}
 
-	// Changes the emulator's settings
+	// Updates the emulator's settings
 	pub fn update_config(&mut self, emulator_input: EmulatorInput) {
 		if emulator_input.prev_bg_map {
 			self.current_bg_map = (self.current_bg_map + 1) % 4
@@ -96,6 +114,11 @@ impl Emulator {
 		if emulator_input.toggle_mute {
 			self.bus.apu.toggle_mute();
 		}
+		for i in 0..=2 {
+			if emulator_input.toggle_layer[i] {
+				self.bus.ppu.toggle_layer(i);
+			}
+		}
 		for i in 0..=3 {
 			if emulator_input.toggle_channel[i] {
 				self.bus.apu.toggle_channel(i);
@@ -105,6 +128,14 @@ impl Emulator {
 
 	// Creates an EmulatorState from the currently running Emulator
 	pub fn save_state(&mut self, position: Option<usize>) {
+		let save_string = self.get_save_string();
+		match position {
+			Some(i) => self.select_save_states[i] = save_string,
+			None => self.save_states.push(save_string), 
+		}
+	}
+
+	fn get_save_string(&mut self) -> String {
 		let json = self.bus.mmu.cartridge.create_state();
 		let emulator_state = EmulatorState {
 			cpu_state: self.cpu.create_state(),
@@ -113,11 +144,7 @@ impl Emulator {
 		};
 		let serialized = serde_json::to_string(&emulator_state).unwrap();
 		// println!("Size of JSON: {} bytes", serialized.len());
-		match position {
-			Some(i) => self.select_save_states[i] = serialized,
-			None => self.save_states.push(serialized), 
-		}
-
+		serialized
 	}
 
 	// Loads an EmulatorState from either the save stack or the 4 save states
@@ -125,34 +152,53 @@ impl Emulator {
 		match position {
 			Some(i) => {
 				if self.select_save_states[i] != "" {
-					match serde_json::from_str::<EmulatorState>(&self.select_save_states[i]) {
-						Ok(emulator_state) => {
-							self.cpu.load_state(emulator_state.cpu_state);
-							self.bus.load_state(emulator_state.bus_state);
-							self.bus.mmu.cartridge.load_state(&emulator_state.cartridge_json);
-						},
-						Err(e) => {
-							eprintln!("Failed to deserialize state: {}", e);
-						}
-					}
+					self.load_save_string(i as i8);
 				}
-			},
+			}
 			None => {
-				if let Some(last_state_json) = self.save_states.last() {
-					match serde_json::from_str::<EmulatorState>(last_state_json) {
-						Ok(emulator_state) => {
-							self.cpu.load_state(emulator_state.cpu_state);
-							self.bus.load_state(emulator_state.bus_state);
-							self.bus.mmu.cartridge.load_state(&emulator_state.cartridge_json);
-						},
-						Err(e) => {
-							eprintln!("Failed to deserialize state: {}", e);
-						}
-					}
+				if let Some(_) = self.save_states.last() {
+					self.load_save_string(5);
 				}
 			}
 		}
 		
+	}
+
+	// Load an Emulator state based on the option given
+	fn load_save_string(&mut self, option: i8) {
+		let state_string = match option {
+			-1 => &self.rewind_stack.back().unwrap(),
+			0..=3 => &self.select_save_states[option as usize],
+			_ => &self.save_states.last().unwrap(),
+		};
+		match serde_json::from_str::<EmulatorState>(&state_string) {
+			Ok(emulator_state) => {
+				self.cpu.load_state(emulator_state.cpu_state);
+				self.bus.load_state(emulator_state.bus_state);
+				self.bus.mmu.cartridge.load_state(&emulator_state.cartridge_json);
+			},
+			Err(e) => {
+				eprintln!("Failed to deserialize state: {}", e);
+			}
+		}
+	}
+	
+	pub fn push_rewind_stack(&mut self) {
+		if self.rewind_stack.len() == REWIND_STACK_CAPACITY {
+			self.rewind_stack.pop_front();
+			self.rewind_screens.pop_front();
+		}
+		let state = self.get_save_string();
+		self.rewind_stack.push_back(state);
+		self.rewind_screens.push_back(self.get_screen().clone());
+	}
+
+	pub fn pop_rewind_stack(&mut self) {
+		if self.rewind_stack.len() > 0 {
+			self.load_save_string(-1);
+			self.bus.ppu.screen_buffer = self.rewind_screens.pop_back().unwrap();
+			self.rewind_stack.pop_back();
+		}
 	}
 	
 	pub fn get_tilemap(&self) -> [[[Color; 8]; 8]; 384] {

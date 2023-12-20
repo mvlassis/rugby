@@ -64,7 +64,7 @@ pub fn run_app() {
 			.with_active(true)
 			// 20 is a magic number, the menu bar's height
 			.with_inner_size([(GB_WIDTH as f32 * *scale) / dpi_factor,
-							  ((GB_HEIGHT as f32 * *scale) / dpi_factor) + 20 as f32])
+							  ((GB_HEIGHT as f32 * *scale) / dpi_factor) + (MENUBAR_HEIGHT + 1.0 * *scale) as f32])
 			.with_resizable(false),
 		vsync: false, 
 		centered: true,
@@ -77,7 +77,8 @@ pub fn run_app() {
 								   let ppp = cc.egui_ctx.native_pixels_per_point();
 								   if let Some(value) = ppp {
 									   cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize(
-										   Vec2::new((GB_WIDTH as f32 * *scale) / value, (GB_HEIGHT as f32 * *scale) / value + MENUBAR_HEIGHT)));
+										   Vec2::new((GB_WIDTH as f32 * *scale) / value,
+													 (GB_HEIGHT as f32 * *scale) / value + (MENUBAR_HEIGHT + 1.5 * *scale))));
 								   }
 								   let args: Vec<String> = env::args().collect();
 								   let first_arg = &args[1];
@@ -96,6 +97,8 @@ pub struct EguiApp {
 	scale: f32,
 	emulator_playing: bool,
 	exit_program: bool,
+	active_layers: [bool; 3],
+	toggle_layers: [bool; 3],
 	toggle_mute: bool,
 	audio_on: bool,
 	active_channels: [bool; 4],
@@ -134,6 +137,8 @@ impl EguiApp {
 			scale: *scale,
 			emulator_playing: true,
 			exit_program: false,
+			active_layers: [true; 3],
+			toggle_layers: [false; 3],
 			toggle_mute: false,
 			audio_on: true,
 			active_channels: [true; 4],
@@ -185,6 +190,9 @@ impl EguiApp {
 		if input_state.key_pressed(Key::P) {
 			emulator_input.load_state = true;
 		}
+		if input_state.key_down(Key::R) {
+			emulator_input.rewind = true;
+		}
 
 		if self.toggle_mute {
 			emulator_input.toggle_mute = true;
@@ -194,7 +202,12 @@ impl EguiApp {
 			emulator_input.exit = true;
 			self.exit_program = false;
 		}
-		
+		for i in 0..=2 {
+			if self.toggle_layers[i] {
+				emulator_input.toggle_layer[i] = true;
+				self.toggle_layers[i] = false;
+			}
+		}
 		for i in 0..=3 {
 			if self.toggle_channels[i] {
 				emulator_input.toggle_channel[i] = true;
@@ -300,6 +313,9 @@ impl eframe::App for EguiApp {
 				// Options
 				ui.menu_button("Options", |ui| {
 					ui.checkbox(&mut self.emulator_playing, "Pause/Resume");
+				});
+				// Video
+				ui.menu_button("Video", |ui| {
 					ui.menu_button("Scaling", |ui| {
 						for i in 1..=5 {
 							if ui.radio_value(&mut self.scale,
@@ -308,7 +324,7 @@ impl eframe::App for EguiApp {
 								ctx.send_viewport_cmd(ViewportCommand::InnerSize(
 									Vec2::new((GB_WIDTH as f32 * self.scale) / ctx.pixels_per_point()
 											  , (GB_HEIGHT as f32 * self.scale) / ctx.pixels_per_point()
-												 + (MENUBAR_HEIGHT + 1.5 * self.scale))));
+											  + (MENUBAR_HEIGHT + 1.5 * self.scale))));
 							}
 						}
 					});
@@ -323,6 +339,14 @@ impl eframe::App for EguiApp {
 					if ui.button("Palette Picker").clicked() {
 						self.show_palette_window = !self.show_palette_window;
 					}
+					ui.menu_button("Video Layers", |ui| {
+						for i in 0..=2 {
+							if ui.checkbox(&mut self.active_layers[i],
+										   format!("Layer {}", i)).clicked() {
+								self.toggle_layers[i] = true;
+							}
+						}
+					});
 				});
 				// Audio
 				ui.menu_button("Audio", |ui| {
