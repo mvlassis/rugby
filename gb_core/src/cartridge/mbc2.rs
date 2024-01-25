@@ -1,5 +1,5 @@
 use super::Cartridge;
-use super::BANK_SIZE;
+use super::ROM_BANK_SIZE;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -69,9 +69,9 @@ impl Cartridge for MBC2 {
             0x4000..=0x7FFF => {
                 let address = address - 0x4000;
                 if self.rom_bank_number == 0 {
-                    self.rom[address + BANK_SIZE]
+                    self.rom[address + ROM_BANK_SIZE]
                 } else {
-                    self.rom[address + (self.rom_bank_number) * BANK_SIZE]
+                    self.rom[address + (self.rom_bank_number) * ROM_BANK_SIZE]
                 }
 
             }

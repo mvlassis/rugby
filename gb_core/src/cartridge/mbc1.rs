@@ -1,5 +1,6 @@
 use super::Cartridge;
-use super::BANK_SIZE;
+use super::ROM_BANK_SIZE;
+use super::RAM_BANK_SIZE;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -34,7 +35,7 @@ impl MBC1 {
         let mut rom: Vec<u8> = Vec::new();
         rom.extend_from_slice(data_buffer);
         let mut ram: Vec<u8> = Vec::new();
-		let rom_banks = rom.len() / BANK_SIZE;
+		let rom_banks = rom.len() / ROM_BANK_SIZE;
 		let rom_bits = (rom_banks as f64).log2().ceil() as usize;
 		let rom_bit_mask = (1 << rom_bits) - 1;
 
@@ -51,11 +52,11 @@ impl MBC1 {
 						}
 					}
 				} else {
-					ram = vec![0; ram_banks * BANK_SIZE];
+					ram = vec![0; ram_banks * RAM_BANK_SIZE];
 				}
 			},
 			None => {
-				ram = vec![0; ram_banks * BANK_SIZE];
+				ram = vec![0; ram_banks * RAM_BANK_SIZE];
 			},
 		}
 		
@@ -87,7 +88,7 @@ impl Cartridge for MBC1 {
                     self.rom[address]
                 } else {
 					let rom_bank = self.ram_bank_number << 5;
-                    self.rom[address + rom_bank * BANK_SIZE]
+                    self.rom[address + rom_bank * ROM_BANK_SIZE]
                 }
             }
             0x4000..=0x7FFF => {
@@ -98,10 +99,10 @@ impl Cartridge for MBC1 {
 				};
 				if self.rom_bit_mask > 0x1F {
 					let rom_bank = (self.ram_bank_number << 5) + rom_bank_number & self.rom_bit_mask;
-		            self.rom[address + (rom_bank * BANK_SIZE)]				
+		            self.rom[address + (rom_bank * ROM_BANK_SIZE)]				
 				}
 				else {
-					self.rom[address + (rom_bank_number & self.rom_bit_mask) * BANK_SIZE]	
+					self.rom[address + (rom_bank_number & self.rom_bit_mask) * ROM_BANK_SIZE]	
 				}
 
             }
@@ -109,8 +110,8 @@ impl Cartridge for MBC1 {
                 let address = address - 0xA000;
                 if self.ram_enable {
                     if self.banking_mode == BankingMode::Advanced &&
-						self.ram.len() / BANK_SIZE > 1  {
-							self.ram[address + (self.ram_bank_number) * BANK_SIZE]
+						self.ram.len() / RAM_BANK_SIZE > 1  {
+							self.ram[address + (self.ram_bank_number) * RAM_BANK_SIZE]
 						} else {
 							self.ram[address]
 						}
@@ -153,8 +154,8 @@ impl Cartridge for MBC1 {
             0xA000..=0xBFFF => {
                 if self.ram_enable {
 					if self.banking_mode == BankingMode::Advanced &&
-						self.ram.len() / BANK_SIZE > 1 {
-							self.ram[address - 0xA000 + (self.ram_bank_number) * BANK_SIZE] = value;
+						self.ram.len() / RAM_BANK_SIZE > 1 {
+							self.ram[address - 0xA000 + (self.ram_bank_number) * RAM_BANK_SIZE] = value;
 						} else {
 							self.ram[address - 0xA000] = value;
 						}

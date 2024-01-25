@@ -1,5 +1,6 @@
 use super::Cartridge;
-use super::BANK_SIZE;
+use super::ROM_BANK_SIZE;
+use super::RAM_BANK_SIZE;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -150,6 +151,7 @@ impl MBC3 {
 		match save_path.clone() {
 			Some(path) => {
 				if path.exists() {
+					println!("{:?}", path);
 					let mut clock_path = PathBuf::from(path.clone());
 					if let Some(file_stem) = clock_path.file_stem() {
 						clock_path = clock_path.with_file_name(file_stem).with_extension("rtc");
@@ -165,14 +167,13 @@ impl MBC3 {
 						}
 					}
 				} else {
-					ram = vec![0; ram_banks * BANK_SIZE];
+					ram = vec![0; ram_banks * RAM_BANK_SIZE];
 				}
 			},
 			None => {
-				ram = vec![0; ram_banks * BANK_SIZE];
+				ram = vec![0; ram_banks * RAM_BANK_SIZE];
 			},
 		}
-		
         MBC3 {
             rom,
             ram,
@@ -201,9 +202,9 @@ impl Cartridge for MBC3 {
             0x4000..=0x7FFF => {
                 let address = address - 0x4000;
                 if self.rom_bank_number == 0 {
-                    self.rom[address + BANK_SIZE]
+                    self.rom[address + ROM_BANK_SIZE]
                 } else {
-                    self.rom[address + (self.rom_bank_number) * BANK_SIZE]
+                    self.rom[address + (self.rom_bank_number) * ROM_BANK_SIZE]
                 }
 
             }
@@ -211,7 +212,7 @@ impl Cartridge for MBC3 {
                 let address = address - 0xA000;
                 if self.ram_timer_enable {
                     if self.ram_bank_number <= 0x03 {
-                        self.ram[address + (self.ram_bank_number) * BANK_SIZE]
+                        self.ram[address + (self.ram_bank_number) * RAM_BANK_SIZE]
                     } else if let Some(clock) = &self.clock  {
 						if self.ram_bank_number <= 0x0C {
 							match self.ram_bank_number {
@@ -269,7 +270,7 @@ impl Cartridge for MBC3 {
 				let address = address - 0xA000;
                 if self.ram_timer_enable {
                     if self.ram_bank_number <= 0x03 {
-                        self.ram[address + (self.ram_bank_number) * BANK_SIZE] = value;
+                        self.ram[address + (self.ram_bank_number) * RAM_BANK_SIZE] = value;
                     } else if let Some(clock) = self.clock.as_mut() {
 						if self.ram_bank_number <= 0x0C {
 							match self.ram_bank_number {

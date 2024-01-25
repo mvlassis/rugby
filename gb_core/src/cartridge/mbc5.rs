@@ -1,5 +1,6 @@
 use super::Cartridge;
-use super::BANK_SIZE;
+use super::ROM_BANK_SIZE;
+use super::RAM_BANK_SIZE;
 
 use std::io::prelude::*;
 use std::fs::File;
@@ -36,7 +37,7 @@ impl MBC5 {
         let mut rom: Vec<u8> = Vec::new();
         rom.extend_from_slice(data_buffer);
         let mut ram: Vec<u8> = Vec::new();
-		let rom_banks = rom.len() / BANK_SIZE;
+		let rom_banks = rom.len() / ROM_BANK_SIZE;
 		let rom_bits = (rom_banks as f64).log2().ceil() as usize;
 		let rom_bit_mask = (1 << rom_bits) - 1;
 
@@ -53,11 +54,11 @@ impl MBC5 {
 						}
 					}
 				} else {
-					ram = vec![0; ram_banks * BANK_SIZE];
+					ram = vec![0; ram_banks * RAM_BANK_SIZE];
 				}
 			},
 			None => {
-				ram = vec![0; ram_banks * BANK_SIZE];
+				ram = vec![0; ram_banks * RAM_BANK_SIZE];
 			},
 		}
 		
@@ -86,12 +87,12 @@ impl Cartridge for MBC5 {
             }
             0x4000..=0x7FFF => {
                 let address = address - 0x4000;
-                self.rom[address + (self.rom_bank_number & self.rom_bit_mask) * BANK_SIZE]
+                self.rom[address + (self.rom_bank_number & self.rom_bit_mask) * ROM_BANK_SIZE]
             }
             0xA000..=0xBFFF => {
                 let address = address - 0xA000;
                 if self.ram_enable {
-                    self.ram[address + (self.ram_bank_number) * BANK_SIZE]
+                    self.ram[address + (self.ram_bank_number) * RAM_BANK_SIZE]
                 } else {
 					0xFF
 				}
@@ -130,7 +131,7 @@ impl Cartridge for MBC5 {
             0xA000..=0xBFFF => {
 				let address = address - 0xA000;
                 if self.ram_enable {
-                    self.ram[address + (self.ram_bank_number) * BANK_SIZE] = value;
+                    self.ram[address + (self.ram_bank_number) * RAM_BANK_SIZE] = value;
                 } else {
                     ()
                 }

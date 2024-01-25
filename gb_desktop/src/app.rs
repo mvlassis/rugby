@@ -283,7 +283,7 @@ impl eframe::App for EguiApp {
 				ui.menu_button("File", |ui| {
 					if ui.button("Open").clicked()  {
 						let file = FileDialog::new()
-							.add_filter("Game Boy", &["gb", "gbc", "bin"])
+							.add_filter("Game Boy", &["gb", "gbc", "sgb", "bin"])
 							.pick_file();
 						if let Some(path) = file {
 							self.gb.load(path.clone());
