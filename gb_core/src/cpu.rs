@@ -1,5 +1,6 @@
 mod opcodes;
 use crate::bus::Bus;
+use crate::gb_mode::GBMode;
 use crate::save_state::CPUState;
 
 const EXPANDED_INSTRUCTION_OPCODE: u8 = 0xCB;
@@ -17,6 +18,9 @@ pub struct CPU {
 	ime_scheduled: bool,
 	halt_mode: bool,
 	rtc_oscillator: u64,
+
+	// Required for Gameboy Color emulation
+	gb_mode: GBMode,
 }
 
 
@@ -34,13 +38,20 @@ impl CPU {
 			ime_scheduled: false,
 			halt_mode: false,
 			rtc_oscillator: 0,
+
+			gb_mode: GBMode::DMG,
 		}
 	}
 
 	// Initializes registers, PC, and lookup table
-	pub fn initialize(&mut self) {
-		self.cpu_registers = [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D,
-							  0xFF, 0xFE];
+	pub fn initialize(&mut self, gb_mode: GBMode) {
+		self.gb_mode = gb_mode;
+		self.cpu_registers = match self.gb_mode {
+			GBMode::DMG => [0x01, 0xB0, 0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D,
+							0xFF, 0xFE],
+			GBMode::CGB => [0x11, 0x40, 0x00, 0x00, 0xFF, 0x56, 0x00, 0x0D,
+							  0xFF, 0xFE],
+		};
 		self.pc = 0x100;
 		self.build_lookup_tables();
 	}

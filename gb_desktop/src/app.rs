@@ -9,7 +9,8 @@ use std::time::Duration;
 use std::path::PathBuf;
 use winit::event_loop::EventLoop;
 
-use gb_core::color::Color as LogicalColor;
+use gb_core::color::Color as OutputColor;
+use gb_core::color::LogicalColor;
 use gb_core::emulator::Emulator;
 use gb_core::input::Input;
 use gb_core::input::EmulatorInput;
@@ -234,19 +235,32 @@ impl EguiApp {
 	pub fn print_fps(&mut self) {
 		self.end = self.timer_subsystem.performance_counter();
 		let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
-		println!("Seconds: {}", seconds);
+		// println!("Seconds: {}", seconds);
 		let current_fps = 1.0 / seconds;
 		println!("FPS: {}", current_fps);
 	}
 
 	// Returns a RGB color from the Emulators logical color
-	fn get_color(&self, logcolor: &LogicalColor) -> (u8, u8, u8) {
+	fn get_color(&self, color: &OutputColor) -> (u8, u8, u8) {
 		let i = self.palette_index;
-		match logcolor {
-			LogicalColor::White => self.palettes[i].colors[0],
-			LogicalColor::LightGray => self.palettes[i].colors[1],
-			LogicalColor::DarkGray => self.palettes[i].colors[2],
-			LogicalColor::Black => self.palettes[i].colors[3],
+		match color {
+			OutputColor::Logical(logical) => match logical {
+				LogicalColor::White => self.palettes[i].colors[0],
+				LogicalColor::LightGray => self.palettes[i].colors[1],
+				LogicalColor::DarkGray => self.palettes[i].colors[2],
+				LogicalColor::Black => self.palettes[i].colors[3],
+			},
+			OutputColor::RGB(rgb) => {
+				let r_5bit = (rgb & 0x1F) as u8;
+				let r_8bit = (r_5bit << 3) | (r_5bit >> 2);
+				
+				let g_5bit = ((rgb & 0x3E0) >> 5) as u8;
+				let g_8bit = (g_5bit << 3) | (g_5bit >> 2);
+				
+				let b_5bit = ((rgb & 0x7C00) >> 10) as u8;
+				let b_8bit = (b_5bit << 3) | (b_5bit >> 2);
+				(r_8bit, g_8bit, b_8bit)
+			}
 		}
 	}
 }
@@ -259,6 +273,9 @@ impl eframe::App for EguiApp {
 
 		ctx.input(|i| {
 			(input, emulator_input) = self.handle_input(i);
+			if i.viewport().close_requested() {
+				self.gb.save();
+			}
 		});
 
 		let screen = match self.emulator_playing {
@@ -430,4 +447,5 @@ impl eframe::App for EguiApp {
 		eframe::set_value(storage, "recent_roms", &self.recent_roms);
 		eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
 	}
+
 }

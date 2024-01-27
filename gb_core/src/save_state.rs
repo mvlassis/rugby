@@ -38,7 +38,7 @@ pub struct CPUState {
 #[derive(Serialize, Deserialize)]
 pub struct MMUState {
 	#[serde(with = "BigArray")]
-	pub wram:         [u8; 8192],
+	pub wram:         [u8; 8 * 4096],
 	#[serde(with = "BigArray")]
 	pub io_registers: [u8; 128],
 	#[serde(with = "BigArray")]
@@ -73,7 +73,7 @@ pub struct PPUState {
     pub obp0: u8,
     pub obp1: u8,
 	#[serde(with = "BigArray")]
-    pub vram: [u8; 8192],
+    pub vram: [u8; 2 * 8192],
 	#[serde(with = "BigArray")]
     pub oam: [u8; 160],
     // pub screen_buffer: Vec<Color>,

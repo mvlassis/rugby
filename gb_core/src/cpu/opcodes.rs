@@ -2794,11 +2794,13 @@ impl CPU {
 	}
 
 	// STOP: Low power standby mode
-	// TODO
 	fn opcode_stop(&mut self, bus: &mut Bus) {
 		let input_bits = (bus.get_byte(0xFF00) >> 4) & 0x0F;
-		if input_bits == 0 {
-			println!("Done");
+		if input_bits != 0 {
+			if bus.key1 & 0x01 == 1 {
+				bus.double_speed = !bus.double_speed;
+				bus.key1 = bus.key1 & 0x00;
+			}
 		}
 		self.pc += 1;
 	}

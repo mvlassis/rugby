@@ -151,7 +151,6 @@ impl MBC3 {
 		match save_path.clone() {
 			Some(path) => {
 				if path.exists() {
-					println!("{:?}", path);
 					let mut clock_path = PathBuf::from(path.clone());
 					if let Some(file_stem) = clock_path.file_stem() {
 						clock_path = clock_path.with_file_name(file_stem).with_extension("rtc");

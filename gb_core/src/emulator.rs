@@ -7,6 +7,7 @@ use crate::bus::Bus;
 use crate::cartridge::load;
 use crate::cpu::CPU;
 use crate::color::Color;
+use crate::gb_mode::GBMode;
 use crate::input::Input;
 use crate::input::EmulatorInput;
 use crate::ppu::GB_WIDTH;
@@ -30,13 +31,13 @@ pub struct Emulator {
 
 impl Emulator {
 	pub fn new(path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
-		let mut cpu = CPU::new();
-		cpu.initialize();
-
-		let cartridge = load(path_buf);
+		let (cartridge, gb_mode) = load(path_buf);
 		let mut bus = Bus::new(cartridge, callback);
-
-		bus.initialize();
+		bus.initialize(gb_mode);
+		
+		let mut cpu = CPU::new();
+		cpu.initialize(gb_mode);
+		
 		Emulator {
 			cpu,
 			bus,
@@ -51,10 +52,11 @@ impl Emulator {
 
 	// Loads a new ROM file
 	pub fn load(&mut self, path_buf: PathBuf) {
-		self.cpu.initialize();
-		let cartridge = load(path_buf);
+		let (cartridge, gb_mode) = load(path_buf);
 		self.bus.load_rom(cartridge);
-		self.bus.initialize();
+		self.bus.initialize(gb_mode);
+
+		self.cpu.initialize(gb_mode);
 
 		self.save_states = Vec::new();
 		self.select_save_states = vec!["".to_string(); 4];
@@ -78,7 +80,7 @@ impl Emulator {
 		while self.bus.ppu.frame_ready == false {
 			self.cpu.step(&mut self.bus);			
 		}
-		self.push_rewind_stack();
+		// self.push_rewind_stack();
 		self.bus.ppu.frame_ready = false;
 		self.bus.ppu.get_screen_buffer()
 	}
@@ -126,6 +128,11 @@ impl Emulator {
 		}
 	}
 
+	// Save the cartridge
+	pub fn save(&mut self) {
+		self.bus.mmu.cartridge.save();
+	}
+	
 	// Creates an EmulatorState from the currently running Emulator
 	pub fn save_state(&mut self, position: Option<usize>) {
 		let save_string = self.get_save_string();

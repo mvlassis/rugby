@@ -8,6 +8,7 @@ use std::fs::File;
 use std::io::Read;
 use std::path::PathBuf;
 
+use crate::gb_mode::GBMode;
 use romonly::RomOnly;
 use mbc1::MBC1;
 use mbc2::MBC2;
@@ -17,7 +18,8 @@ use mbc5::MBC5;
 pub const ROM_BANK_SIZE: usize = 16384;
 pub const RAM_BANK_SIZE: usize = 8192;
 
-pub fn load(path_buf: PathBuf) -> Box<dyn Cartridge> {
+// Returns a cartridge, and whether it is for Gameboy or Gameboy Color
+pub fn load(path_buf: PathBuf) -> (Box<dyn Cartridge>, GBMode) {
     let mut save_path = path_buf.clone();
     if let Some(file_stem) = save_path.file_stem() {
         save_path = save_path.with_file_name(file_stem).with_extension("sav");
@@ -38,9 +40,16 @@ pub fn load(path_buf: PathBuf) -> Box<dyn Cartridge> {
         0x05 => 8,
         _ => unreachable!("Cartridge::load(), ram_banks"),
     };
-    println!("Cartridge type: {:02X}", cartridge_type);
+
+	let gb_mode = match data_buffer[0x0143] {
+		0x80 | 0xC0 => GBMode::CGB,
+		_ => GBMode::DMG,
+	};
+	
+    // println!("Cartridge type: {:02X}", cartridge_type);
     // println!("ROM size: {}", rom_size);
-    println!("Number of RAM banks: {}", ram_banks);
+    // println!("Number of RAM banks: {}", ram_banks);
+	// println!("GBMode: {:?}", gb_mode);
     let cartridge: Box<dyn Cartridge> = match cartridge_type {
         0x00 => Box::new(RomOnly::new(&data_buffer)),
         0x01 | 0x02 => Box::new(MBC1::new(&data_buffer, ram_banks, None)),
@@ -56,7 +65,7 @@ pub fn load(path_buf: PathBuf) -> Box<dyn Cartridge> {
 		0x1E => Box::new(MBC5::new(&data_buffer, ram_banks, Some(save_path))),
         _ => unreachable!("Cartridge::load()"),
     };
-    cartridge
+    (cartridge, gb_mode)
 }
 
 pub trait Cartridge {

@@ -6,6 +6,7 @@ mod bus;
 mod cartridge;
 mod cpu;
 mod mmu;
+mod gb_mode;
 mod ppu;
 mod save_state;
 mod timer;

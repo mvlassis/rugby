@@ -1,16 +1,18 @@
 use std::fs::OpenOptions;
 use std::io::Write;
 use crate::cartridge::Cartridge;
+use crate::gb_mode::GBMode;
 use crate::input::Input;
 use crate::save_state::MMUState;
 use crate::timer::Timer;
 
 const MEMORY_SIZE: usize = 65536;
+const WRAM_BANK_SIZE: usize = 4096;
 
 // Gameboy does not actually have an MMU, don't tell the Nintendo ninjas
 pub struct MMU {
 	pub cartridge: Box<dyn Cartridge>,
-	wram:         [u8; 8192],
+	wram:         [u8; 8 * WRAM_BANK_SIZE],
 	io_registers: [u8; 128],
 	hram:         [u8; 127],
 	ie_register: u8,
@@ -21,6 +23,10 @@ pub struct MMU {
 	pub joypad_interrupt: bool,
 	serial_buffer: [u8; 100], // TODO: properly implement
 	serial_file_path: String,
+
+	// For Gameboy Color
+	gb_mode: GBMode,
+	pub svbk: u8,
 }
 
 impl MMU {
@@ -28,7 +34,7 @@ impl MMU {
 		let serial_file_path = "output.txt";
 		MMU {
 			cartridge,
-			wram: [0; 8192],
+			wram: [0; 8 * WRAM_BANK_SIZE],
 			io_registers: [0; 128],
 			hram: [0; 127],
 			ie_register: 0,
@@ -39,16 +45,20 @@ impl MMU {
 			joypad_interrupt: false,
 			serial_buffer: [0; 100],
 			serial_file_path: serial_file_path.to_string(),
+
+			gb_mode: GBMode::DMG,
+			svbk: 0xF8,
 		}
 	}
 
-	pub fn initialize(&mut self)  {
+	pub fn initialize(&mut self, gb_mode: GBMode)  {
 		self.io_registers[0x00] = 0xCF; // P1
 		self.io_registers[0x02] = 0x7E; // SC
 		self.io_registers[0x04] = 0xAB; // DIV
 		self.io_registers[0x07] = 0xF8; // TAC
 		self.io_registers[0x0F] = 0xE1; // IF
 
+		self.gb_mode = gb_mode;
 		self.timer.initialize();
 	}
 
@@ -60,8 +70,36 @@ impl MMU {
 		match address {
 			0x0000..=0x7FFF => self.cartridge.read(address),
 			0xA000..=0xBFFF => self.cartridge.read(address),
-			0xC000..=0xDFFF => self.wram[address as usize - 0xC000],
-			0xE000..=0xFDFF => self.wram[address as usize - 0xE000],
+			0xC000..=0xCFFF => {
+				self.wram[address as usize - 0xC000]
+			},
+			0xD000..=0xDFFF => {
+				match self.gb_mode {
+					GBMode::DMG => self.wram[address as usize - 0xC000],
+					GBMode::CGB => {
+						let index = match self.svbk & 0x07 {
+							0 => 1,
+							_ => (self.svbk & 0x07) as usize,
+						};
+						self.wram[WRAM_BANK_SIZE * index + (address as usize - 0xD000)]
+					}
+				}
+			}
+			0xE000..=0xEFFF => {
+				self.wram[address as usize - 0xE000] // Echo RAM
+			},
+			0xF000..=0xFDFF => {
+				match self.gb_mode {
+					GBMode::DMG => self.wram[address as usize - 0xE000],
+					GBMode::CGB => {
+						let index = match self.svbk & 0x07 {
+							0 => 1,
+							_ => (self.svbk & 0x07) as usize,
+						};
+						self.wram[WRAM_BANK_SIZE * index + (address as usize - 0xF000)]
+					}
+				}
+			}
 			0xFF00..=0xFF7F => {
 				match address {
 					0xFF00 =>  {
@@ -71,6 +109,7 @@ impl MMU {
 					0xFF05 => self.timer.tima,
 					0xFF06 => self.timer.tma,
 					0xFF07 => self.timer.tac,
+					0xFF70 => self.svbk,
 					_ => self.io_registers[address as usize - 0xFF00],
 				}
 			},
@@ -85,7 +124,21 @@ impl MMU {
 		match address {
 			0x0000..=0x7FFF => self.cartridge.write(address, value),
 			0xA000..=0xBFFF => self.cartridge.write(address, value),
-			0xC000..=0xDFFF => self.wram[address as usize - 0xC000] = value,
+			0xC000..=0xCFFF => {
+				self.wram[address as usize - 0xC000] = value;
+			},
+			0xD000..=0xDFFF => {
+				match self.gb_mode {
+					GBMode::DMG => self.wram[address as usize - 0xC000] = value,
+					GBMode::CGB => {
+						let index = match self.svbk & 0x07 {
+							0 => 1,
+							_ => (self.svbk & 0x07) as usize,
+						};
+						self.wram[WRAM_BANK_SIZE * index + (address as usize - 0xD000)] = value;
+					}
+				}
+			}
 			0xE000..=0xFDFF => (), // ECHO RAM, ignore
 			0xFEA0..=0xFEFF => (), // Prohibited area, ignore
 			0xFF00..=0xFF7F => {
@@ -108,6 +161,7 @@ impl MMU {
 					0xFF05 => self.timer.tima = value,
 					0xFF06 => self.timer.tma = value,
 					0xFF07 => self.timer.tac = value,
+					0xFF70 => self.svbk = value,
 					_ => self.io_registers[address as usize - 0xFF00] = value,
 				}
 			},
