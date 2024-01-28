@@ -129,6 +129,10 @@ impl PPU {
 		self.vbk = 0;
 
 		self.gb_mode = gb_mode;
+		self.bg_cram = [0xFF; 64];
+		self.bgpi = 0xC8;
+		self.obj_cram = [0xFF; 64];
+		self.obpi = 0xD0;
 		self.opri = 0x00; // TODO Monochrome games in GBC
 		self.entered_hblank = false;
     }
@@ -764,6 +768,15 @@ impl PPU {
 			prev_interrupt_line: self.prev_interrupt_line,
 			frame_ready: self.frame_ready,
 			ppu_disabled: self.ppu_disabled,
+
+			gb_mode: self.gb_mode,
+			vbk: self.vbk,
+			bg_cram: self.bg_cram.clone(),
+			bgpi: self.bgpi,
+			obj_cram: self.obj_cram.clone(),
+			obpi: self.obpi,
+			opri: self.opri,
+			entered_hblank: self.entered_hblank,
 		}
 	}
 
@@ -793,5 +806,14 @@ impl PPU {
 		self.prev_interrupt_line = ppu_state.prev_interrupt_line;
 		self.frame_ready = ppu_state.frame_ready;
 		self.ppu_disabled = ppu_state.ppu_disabled;
+
+		self.gb_mode = ppu_state.gb_mode;
+		self.vbk = ppu_state.vbk;
+		self.bg_cram = ppu_state.bg_cram.clone();
+		self.bgpi = ppu_state.bgpi;
+		self.obj_cram = ppu_state.obj_cram.clone();
+		self.obpi = ppu_state.obpi;
+		self.opri = ppu_state.opri;
+		self.entered_hblank = ppu_state.entered_hblank;
 	}
 }

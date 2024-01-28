@@ -305,6 +305,7 @@ impl CPU {
 			ime_scheduled: self.ime_scheduled,
 			halt_mode: self.halt_mode,
 			rtc_oscillator: self.rtc_oscillator,
+			gb_mode: self.gb_mode,
 		}
 	}
 
@@ -317,5 +318,6 @@ impl CPU {
 		self.ime_scheduled = cpu_state.ime_scheduled;
 		self.halt_mode = cpu_state.halt_mode;
 		self.rtc_oscillator = cpu_state.rtc_oscillator;
+		self.gb_mode = cpu_state.gb_mode;
 	}
 }

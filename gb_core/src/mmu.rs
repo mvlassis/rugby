@@ -59,6 +59,7 @@ impl MMU {
 		self.io_registers[0x0F] = 0xE1; // IF
 
 		self.gb_mode = gb_mode;
+		self.svbk = 0xF8;
 		self.timer.initialize();
 	}
 
@@ -253,6 +254,8 @@ impl MMU {
 			joypad_interrupt: self.joypad_interrupt,
 			serial_buffer: self.serial_buffer.clone(),
 			serial_file_path: self.serial_file_path.clone(),
+			gb_mode: self.gb_mode,
+			svbk: self.svbk,
 		}
 	}
 
@@ -268,5 +271,7 @@ impl MMU {
 		self.joypad_interrupt = mmu_state.joypad_interrupt;
 		self.serial_buffer = mmu_state.serial_buffer.clone();
 		self.serial_file_path = mmu_state.serial_file_path.clone();
+		self.gb_mode = mmu_state.gb_mode;
+		self.svbk = mmu_state.svbk;
 	}
 }

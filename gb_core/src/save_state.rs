@@ -2,6 +2,7 @@ use serde::{Serialize, Deserialize};
 use serde_big_array::BigArray;
 
 use crate::input::Input;
+use crate::gb_mode::GBMode;
 use crate::timer::Timer;
 use crate::ppu::{Object, Mode};
 use crate::apu::channels::PulseChannel;
@@ -32,6 +33,8 @@ pub struct CPUState {
 	pub ime_scheduled: bool,
 	pub halt_mode: bool,
 	pub rtc_oscillator: u64,
+
+	pub gb_mode: GBMode,
 }
 
 // Missing the cartridge
@@ -52,6 +55,9 @@ pub struct MMUState {
 	#[serde(with = "BigArray")]
 	pub serial_buffer: [u8; 100],
 	pub serial_file_path: String,
+
+	pub gb_mode: GBMode,
+	pub svbk: u8,
 }
 
 // Missing screen
@@ -84,6 +90,17 @@ pub struct PPUState {
     pub prev_interrupt_line: u8,
     pub frame_ready: bool,
 	pub ppu_disabled: bool,
+
+	pub gb_mode: GBMode,
+	pub vbk: u8,
+	#[serde(with = "BigArray")]
+	pub bg_cram: [u8; 64],
+	pub bgpi: u8,
+	#[serde(with = "BigArray")]
+	pub obj_cram: [u8; 64],
+	pub obpi: u8,
+	pub opri: u8,
+	pub entered_hblank: bool,
 }
 
 // Missing the callback function

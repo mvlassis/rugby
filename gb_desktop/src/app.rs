@@ -81,11 +81,8 @@ pub fn run_app() {
 										   Vec2::new((GB_WIDTH as f32 * *scale) / value,
 													 (GB_HEIGHT as f32 * *scale) / value + (MENUBAR_HEIGHT + 1.5 * *scale))));
 								   }
-								   let args: Vec<String> = env::args().collect();
-								   let first_arg = &args[1];
-								   let file_path = PathBuf::from(first_arg);
-								   
-								   Box::new(EguiApp::new(cc, palettes, scale, timer_subsystem, file_path, callback))
+								   let first_arg: Option<String> = env::args().nth(1).clone();
+								   Box::new(EguiApp::new(cc, palettes, scale, timer_subsystem, first_arg, callback))
 							   })
 	);
 }
@@ -115,8 +112,14 @@ pub struct EguiApp {
 
 impl EguiApp {
 	pub fn new(cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, scale: Box<f32>, timer: TimerSubsystem,
-			   path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
-		let gb = Emulator::new(path_buf, callback);
+			   file_arg: Option<String>, callback: Box<dyn Fn(&[f32])>) -> Self {
+		let gb = match file_arg {
+			Some(s) => {
+				let path_buf = PathBuf::from(s);
+				Emulator::new(Some(path_buf), callback)
+			},
+			None => Emulator::new(None, callback),
+		};
 		
 		let start = timer.performance_counter();
 		let end = timer.performance_counter();
@@ -283,6 +286,7 @@ impl eframe::App for EguiApp {
 			false => self.gb.get_screen().clone(),
 		};
 
+
 		let mut buffer: Vec<u8> = Vec::with_capacity(GB_WIDTH * GB_HEIGHT * 4);
 		for y in 0..GB_HEIGHT {
 			for x in 0..GB_WIDTH {
@@ -387,6 +391,7 @@ impl eframe::App for EguiApp {
 							if ui.selectable_label(save_status, format!("Save to State Slot {}", i)).clicked() {
 								self.select_save_state = (true, i);
 							}
+
 						}
 					});
 					ui.menu_button("Load State", |ui| {

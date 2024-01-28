@@ -7,7 +7,7 @@ use crate::bus::Bus;
 use crate::cartridge::load;
 use crate::cpu::CPU;
 use crate::color::Color;
-use crate::gb_mode::GBMode;
+use crate::color::LogicalColor;
 use crate::input::Input;
 use crate::input::EmulatorInput;
 use crate::ppu::GB_WIDTH;
@@ -25,13 +25,16 @@ pub struct Emulator {
 	rewind_screens: VecDeque<[[Color; GB_WIDTH]; GB_HEIGHT]>,
 	pub save_states: Vec<String>,
 	pub select_save_states: Vec<String>,
-	
+
+	emulator_active: bool,
 	current_bg_map: u8, // The background map to show (for debugging)
 }
 
 impl Emulator {
-	pub fn new(path_buf: PathBuf, callback: Box<dyn Fn(&[f32])>) -> Self {
+	pub fn new(path_buf: Option<PathBuf>, callback: Box<dyn Fn(&[f32])>) -> Self {
+		let emulator_active = path_buf.is_some();
 		let (cartridge, gb_mode) = load(path_buf);
+		
 		let mut bus = Bus::new(cartridge, callback);
 		bus.initialize(gb_mode);
 		
@@ -46,13 +49,15 @@ impl Emulator {
 			rewind_screens: VecDeque::with_capacity(REWIND_STACK_CAPACITY),
 			save_states: Vec::new(),
 			select_save_states: vec!["".to_string(); 4],
+			emulator_active,
 			current_bg_map: 0
 		}
 	}
 
 	// Loads a new ROM file
 	pub fn load(&mut self, path_buf: PathBuf) {
-		let (cartridge, gb_mode) = load(path_buf);
+		self.emulator_active = true;
+		let (cartridge, gb_mode) = load(Some(path_buf));
 		self.bus.load_rom(cartridge);
 		self.bus.initialize(gb_mode);
 
@@ -68,6 +73,11 @@ impl Emulator {
 			self.update_config(emu_input);
 		}
 
+		// If emulator is not active, simply return a blank screen
+		if !self.emulator_active {
+			return &[[Color::Logical(LogicalColor::White); GB_WIDTH]; GB_HEIGHT];
+		}
+
 		// Rewind
 		if emulator_input.is_some() && emulator_input.unwrap().rewind {
 			self.pop_rewind_stack();
@@ -80,7 +90,7 @@ impl Emulator {
 		while self.bus.ppu.frame_ready == false {
 			self.cpu.step(&mut self.bus);			
 		}
-		// self.push_rewind_stack();
+		self.push_rewind_stack();
 		self.bus.ppu.frame_ready = false;
 		self.bus.ppu.get_screen_buffer()
 	}

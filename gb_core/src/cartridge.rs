@@ -19,13 +19,20 @@ pub const ROM_BANK_SIZE: usize = 16384;
 pub const RAM_BANK_SIZE: usize = 8192;
 
 // Returns a cartridge, and whether it is for Gameboy or Gameboy Color
-pub fn load(path_buf: PathBuf) -> (Box<dyn Cartridge>, GBMode) {
-    let mut save_path = path_buf.clone();
+pub fn load(path_buf: Option<PathBuf>) -> (Box<dyn Cartridge>, GBMode) {
+	// If no path is given, create a dummy ROM
+	if path_buf.is_none() {
+		let data_buffer = vec![0u8; 32768];
+		let cartridge = Box::new(RomOnly::new(&data_buffer));
+		return (cartridge, GBMode::DMG);
+	}
+	
+    let mut save_path = path_buf.clone().unwrap();
     if let Some(file_stem) = save_path.file_stem() {
         save_path = save_path.with_file_name(file_stem).with_extension("sav");
     }
     
-    let mut rom = File::open(path_buf).expect("Unable to open file {path}");
+    let mut rom = File::open(path_buf.unwrap()).expect("Unable to open file {path}");
     let mut data_buffer = Vec::new();
     rom.read_to_end(&mut data_buffer).unwrap();
 
