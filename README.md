@@ -1,7 +1,11 @@
 # Rugby
-Game Boy and Game Boy Color emulator written in Rust
+Rugby is a Game Boy and Game Boy Color emulator written in Rust. It supports most cartridges and has many features like customizable palettes and rewinding.
 
 ## Gallery
+<img src="gallery/super-mario-land.png" width = "360"> <img src="gallery/donkey-kong.png" width = "360"> 
+<img src="gallery/pokemon-blue.png" width = "360"> <img src="gallery/metroid-2.png" width = "360">
+<img src="gallery/wario-land-3.png" width = "360"> <img src="gallery/pokemon-gold.png" width = "360">
+<img src="gallery/shantae.png" width = "360"> <img src="gallery/zelda-seasons.png" width = "360">
 
 # Installation and usage:
 ### Build youself
