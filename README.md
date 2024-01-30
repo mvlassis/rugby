@@ -69,4 +69,4 @@ The executable will be show in the subfolder `target`.
 - [rboy](https://github.com/mvdnes/rboy),
 
 # License
-Rugby is licensed under the (MIT license)[https://choosealicense.com/licenses/mit/]
+Rugby is licensed under the [MIT license](https://choosealicense.com/licenses/mit/)
