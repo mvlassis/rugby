@@ -9,11 +9,11 @@ use std::time::Duration;
 use std::path::PathBuf;
 use winit::event_loop::EventLoop;
 
-use gb_core::color::Color as OutputColor;
-use gb_core::color::LogicalColor;
-use gb_core::emulator::Emulator;
-use gb_core::input::Input;
-use gb_core::input::EmulatorInput;
+use rugby_core::color::Color as OutputColor;
+use rugby_core::color::LogicalColor;
+use rugby_core::emulator::Emulator;
+use rugby_core::input::Input;
+use rugby_core::input::EmulatorInput;
 use crate::config_builder::get_all_palettes;
 
 const GB_WIDTH: usize = 160;

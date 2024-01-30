@@ -1,6 +1,6 @@
 /target
-gb_core/target
-gb_desktop/target
+rugby_core/target
+rugby_desktop/target
 gameboy-test-roms
 *.gb
 *.txt

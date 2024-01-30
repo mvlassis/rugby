@@ -1333,30 +1333,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gb_core"
-version = "0.2.0"
-dependencies = [
- "serde",
- "serde-big-array",
- "serde_json",
-]
-
-[[package]]
-name = "gb_desktop"
-version = "0.2.0"
-dependencies = [
- "config",
- "eframe",
- "egui 0.18.1",
- "gb_core",
- "pollster",
- "rfd",
- "sdl2",
- "spin_sleep",
- "winit 0.26.1",
-]
-
-[[package]]
 name = "gdk-pixbuf-sys"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2610,6 +2586,30 @@ dependencies = [
  "bitflags 2.4.1",
  "serde",
  "serde_derive",
+]
+
+[[package]]
+name = "rugby_core"
+version = "1.0.0"
+dependencies = [
+ "serde",
+ "serde-big-array",
+ "serde_json",
+]
+
+[[package]]
+name = "rugby_desktop"
+version = "1.0.0"
+dependencies = [
+ "config",
+ "eframe",
+ "egui 0.18.1",
+ "pollster",
+ "rfd",
+ "rugby_core",
+ "sdl2",
+ "spin_sleep",
+ "winit 0.26.1",
 ]
 
 [[package]]
