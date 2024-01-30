@@ -4,8 +4,8 @@ Rugby is a Game Boy and Game Boy Color emulator written in Rust. It supports mos
 ## Gallery
 <img src="gallery/super-mario-land.png" width = "360"> <img src="gallery/donkey-kong.png" width = "360"> 
 <img src="gallery/pokemon-blue.png" width = "360"> <img src="gallery/metroid-2.png" width = "360">
-<img src="gallery/wario-land-3.png" width = "360"> <img src="gallery/pokemon-gold.png" width = "360">
-<img src="gallery/shantae.png" width = "360"> <img src="gallery/zelda-seasons.png" width = "360">
+<img src="gallery/smb-deluxe.png" width = "360"> <img src="gallery/zelda-ages.png" width = "360">
+<img src="gallery/shantae.png" width = "360"> <img src="gallery/pokemon-gold.png" width = "360">
 
 # Installation and usage:
 ### Build youself
