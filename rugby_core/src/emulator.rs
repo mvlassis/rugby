@@ -31,9 +31,9 @@ pub struct Emulator {
 }
 
 impl Emulator {
-	pub fn new(path_buf: Option<PathBuf>, callback: Box<dyn Fn(&[f32])>) -> Self {
+	pub fn new(data_buffer: Option<Vec<u8>>, path_buf: Option<PathBuf>, callback: Box<dyn Fn(&[f32])>) -> Self {
 		let emulator_active = path_buf.is_some();
-		let (cartridge, gb_mode) = load(path_buf);
+		let (cartridge, gb_mode) = load(data_buffer, path_buf);
 		
 		let mut bus = Bus::new(cartridge, callback);
 		bus.initialize(gb_mode);
@@ -55,9 +55,9 @@ impl Emulator {
 	}
 
 	// Loads a new ROM file
-	pub fn load(&mut self, path_buf: PathBuf) {
+	pub fn load(&mut self, data_buffer: Option<Vec<u8>>, path_buf: Option<PathBuf>) {
 		self.emulator_active = true;
-		let (cartridge, gb_mode) = load(Some(path_buf));
+		let (cartridge, gb_mode) = load(data_buffer, path_buf);
 		self.bus.load_rom(cartridge);
 		self.bus.initialize(gb_mode);
 
@@ -90,7 +90,7 @@ impl Emulator {
 		while self.bus.ppu.frame_ready == false {
 			self.cpu.step(&mut self.bus);			
 		}
-		self.push_rewind_stack();
+		// self.push_rewind_stack();
 		self.bus.ppu.frame_ready = false;
 		self.bus.ppu.get_screen_buffer()
 	}

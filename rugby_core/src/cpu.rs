@@ -63,7 +63,7 @@ impl CPU {
 		let byte1 = bus.get_byte(self.pc+1);
 		let byte2 = bus.get_byte(self.pc+2);
 		let byte3 = bus.get_byte(self.pc+3);
-		println!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+		log::warn!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
 				 self.cpu_registers[0],
 				 self.cpu_registers[1], self.cpu_registers[2], self.cpu_registers[3],
 				 self.cpu_registers[4], self.cpu_registers[5], self.cpu_registers[6],

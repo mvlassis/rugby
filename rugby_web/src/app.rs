@@ -1,22 +1,22 @@
 use eframe::egui;
 use eframe::Storage;
 use egui::{Color32, Frame, InputState, Key, Vec2, ViewportCommand};
-use rfd::FileDialog;
-use sdl2::audio::{AudioQueue, AudioSpecDesired};
-use sdl2::TimerSubsystem;
+use rfd::AsyncFileDialog;
+use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
+use rodio::source::{SineWave, Source};
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 use std::path::PathBuf;
-use winit::event_loop::EventLoop;
 
 use rugby_core::color::Color as OutputColor;
 use rugby_core::color::LogicalColor;
 use rugby_core::emulator::Emulator;
 use rugby_core::input::Input;
 use rugby_core::input::EmulatorInput;
-use crate::config_builder::get_all_palettes;
+use crate::config_builder::hex_to_rgb;
 
 const GB_WIDTH: usize = 160;
 const GB_HEIGHT: usize = 144;
@@ -30,63 +30,66 @@ pub struct Palette {
 }
 
 pub fn run_app() {
-	// Quickly get the display's DPI
-	let event_loop = EventLoop::new();
-	let window = winit::window::WindowBuilder::new()
-        .with_visible(false)
-        .build(&event_loop)
-        .expect("Failed to create window");
-	let dpi_factor = window.scale_factor() as f32;
-	drop(window);
+	eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 	
-	let sdl_context = sdl2::init().unwrap();
-	let timer_subsystem = sdl_context.timer().unwrap();
-	
-	// Setup the audio
-	let audio_subsystem = sdl_context.audio().expect("Failed to initialize audio");
-	let desired_spec = AudioSpecDesired {
-		freq: Some(44100),
-		channels: Some(2),
-		samples: Some(1024),
-	};
-	let audio_queue: AudioQueue<f32> = audio_subsystem.open_queue(None, &desired_spec)
-		.expect("Failed to create audio queue");
-	audio_queue.resume();
+	// let sdl_context = sdl2::init().unwrap();
+	// // Setup the audio
+	// let audio_subsystem = sdl_context.audio().expect("Failed to initialize audio");
+	// let desired_spec = AudioSpecDesired {
+	// 	freq: Some(44100),
+	// 	channels: Some(2),
+	// 	samples: Some(1024),
+	// };
+	// let audio_queue: AudioQueue<f32> = audio_subsystem.open_queue(None, &desired_spec)
+	// 	.expect("Failed to create audio queue");
+	// audio_queue.resume();
+	// let callback = Box::new(move |buffer: &[f32]| {
+	// 	while audio_queue.size() > 1024 * 4 * 2 {
+	// 		std::thread::sleep(Duration::from_millis(1));
+	// 	}
+	// 	let _ = audio_queue.queue_audio(buffer);
+	// });
+
+	let (_stream, stream_handle) = OutputStream::try_default().unwrap();
+	let sink = Sink::try_new(&stream_handle).unwrap();
+	sink.play();
+
+	let source = SineWave::new(440.0).take_duration(Duration::from_secs_f32(15.0)).amplify(0.20);
+	sink.append(source);
+
 	let callback = Box::new(move |buffer: &[f32]| {
-		while audio_queue.size() > 1024 * 4 * 2 {
-			std::thread::sleep(Duration::from_millis(1));
-		}
-		let _ = audio_queue.queue_audio(buffer);
+		// std::thread::sleep(Duration::from_millis(9));
+		sink.append(SamplesBuffer::new(2, 44100, buffer));
+		log::warn!("Filling buffer...");
 	});
 
-	let palettes = get_all_palettes();
-	let scale = Box::new(4.0); // Default scale
-	
-	let native_options = eframe::NativeOptions {
-		viewport: egui::ViewportBuilder::default()
-			.with_active(true)
-			// 20 is a magic number, the menu bar's height
-			.with_inner_size([(GB_WIDTH as f32 * *scale) / dpi_factor,
-							  ((GB_HEIGHT as f32 * *scale) / dpi_factor) + (MENUBAR_HEIGHT + 1.0 * *scale) as f32])
-			.with_resizable(false),
-		vsync: false, 
-		centered: true,
-		persist_window: false,
-		..Default::default()
+	let palette = Palette {
+		name: "Ice Cream GB".to_string(),
+		colors: [hex_to_rgb("#fff6d3").unwrap(),
+				 hex_to_rgb("#f9a875").unwrap(),
+				 hex_to_rgb("#eb6b6f").unwrap(),
+				 hex_to_rgb("#7c3f58").unwrap(),]
 	};
 	
-	let _ = eframe::run_native("Rugby", native_options,
-							   Box::new(|cc| {
-								   let ppp = cc.egui_ctx.native_pixels_per_point();
-								   if let Some(value) = ppp {
-									   cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize(
-										   Vec2::new((GB_WIDTH as f32 * *scale) / value,
-													 (GB_HEIGHT as f32 * *scale) / value + (MENUBAR_HEIGHT + 1.5 * *scale))));
-								   }
-								   let first_arg: Option<String> = env::args().nth(1).clone();
-								   Box::new(EguiApp::new(cc, palettes, scale, timer_subsystem, first_arg, callback))
-							   })
-	);
+	let palettes = vec![palette];
+	
+	let scale = Box::new(4.0); // Default scale
+	
+	let web_options = eframe::WebOptions::default();
+	wasm_bindgen_futures::spawn_local(async {
+        eframe::WebRunner::new()
+            .start(
+                "the_canvas_id", // hardcode it
+                web_options,
+                Box::new(|cc| {
+					let first_arg: Option<String> = env::args().nth(1).clone();
+					Box::new(EguiApp::new(cc, palettes, scale, first_arg, callback))
+				})
+            )
+            .await
+            .expect("failed to start eframe");
+    });
+	
 }
 
 pub struct EguiApp {
@@ -106,14 +109,13 @@ pub struct EguiApp {
 	show_palette_window: bool,
 	select_save_state: (bool, usize),
 	select_load_state: (bool, usize),
-	timer_subsystem: TimerSubsystem,
-	start: u64,
-	end: u64,
 	recent_roms: Vec<PathBuf>,
+
+	async_channels: (Sender<Vec<u8>>, Receiver<Vec<u8>>),
 }
 
 impl EguiApp {
-	pub fn new(cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, scale: Box<f32>, timer: TimerSubsystem,
+	pub fn new(cc: &eframe::CreationContext<'_>, palettes: Vec<Palette>, scale: Box<f32>,
 			   file_arg: Option<String>, callback: Box<dyn Fn(&[f32])>) -> Self {
 		let gb = match file_arg {
 			Some(s) => {
@@ -126,17 +128,8 @@ impl EguiApp {
 			None => Emulator::new(None, None, callback),
 		};
 		
-		let start = timer.performance_counter();
-		let end = timer.performance_counter();
 		let recent_roms = eframe::get_value(cc.storage.unwrap(), "recent_roms").unwrap_or_default();
-		let mut palette_index = 0;
-		let palette: Option<String> = eframe::get_value(cc.storage.unwrap(), "palette");
-		if let Some(palette_name) = palette {
-			let index = palettes.iter().position(|p| p.name == palette_name);
-			if let Some(index) = index {
-				palette_index = index;
-			}
-		}
+		let palette_index = 0;
 		
 		EguiApp {
 			gb,
@@ -155,10 +148,8 @@ impl EguiApp {
 			show_palette_window: false,
 			select_save_state: (false, 0),
 			select_load_state: (false, 0),
-			timer_subsystem: timer,
-			start,
-			end,
 			recent_roms,
+			async_channels: std::sync::mpsc::channel(),
 		}
     }
 
@@ -235,17 +226,17 @@ impl EguiApp {
 	}
 
 	pub fn start_timer(&mut self) {
-		self.start = self.timer_subsystem.performance_counter();
+		// self.start = self.timer_subsystem.performance_counter();
 	}
 	
 	#[allow(dead_code)]
 	// Prints the framerate
 	pub fn print_fps(&mut self) {
-		self.end = self.timer_subsystem.performance_counter();
-		let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
-		// println!("Seconds: {}", seconds);
-		let current_fps = 1.0 / seconds;
-		println!("FPS: {}", current_fps);
+		// self.end = self.timer_subsystem.performance_counter();
+		// let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
+		// // println!("Seconds: {}", seconds);
+		// let current_fps = 1.0 / seconds;
+		// println!("FPS: {}", current_fps);
 	}
 
 	// Returns a RGB color from the Emulators logical color
@@ -275,10 +266,19 @@ impl EguiApp {
 
 impl eframe::App for EguiApp {
 	fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-		self.start_timer();
+		// self.start_timer();
 		let mut input = Input::new();
 		let mut emulator_input = EmulatorInput::new();
 
+		loop {
+            match self.async_channels.1.try_recv() {
+                Ok(data_buffer) =>  {
+                    self.gb.load(Some(data_buffer), None);
+                },
+                Err(_) => break,
+            }
+        }
+		
 		ctx.input(|i| {
 			(input, emulator_input) = self.handle_input(i);
 			if i.viewport().close_requested() {
@@ -308,38 +308,20 @@ impl eframe::App for EguiApp {
 			egui::menu::bar(ui, |ui| {
 				ui.menu_button("File", |ui| {
 					if ui.button("Open").clicked()  {
-						let file = FileDialog::new()
-							.add_filter("Game Boy", &["gb", "gbc", "sgb", "bin"])
-							.pick_file();
-						let mut rom = File::open(file.clone().unwrap()).expect("Unable to open file {path}");
-						let mut data_buffer = Vec::new();
-						rom.read_to_end(&mut data_buffer).unwrap();
-						self.gb.load(Some(data_buffer), file.clone());
+						let sender = self.async_channels.0.clone();
+						let future = async move {
+							let file = AsyncFileDialog::new()
+								.add_filter("Game Boy", &["gb", "gbc", "sgb", "bin"])
+								.pick_file()
+								.await;
+							let data = file.unwrap().read().await;
+							sender.send(data).ok();
+						};
+
+						wasm_bindgen_futures::spawn_local(future);
 						
-						if !self.recent_roms.contains(&file.clone().unwrap()) {
-							if self.recent_roms.len() > RECENT_ROMS_LENGTH {
-								self.recent_roms.remove(0);
-							}
-							self.recent_roms.push(file.unwrap().clone());
-						}
-						// Update the storage
-						if let Some(storage) = frame.storage_mut() {
-                            eframe::set_value(storage, "recent_roms", &self.recent_roms);
-                            storage.flush();
-                        }
 						ui.close_menu();
 					}
-					ui.menu_button("Recent Files", |ui| {
-						for rom_path in self.recent_roms.clone().iter().rev() {
-							if ui.button(rom_path.file_name().unwrap().to_str().unwrap()).clicked() {
-								let mut rom = File::open(rom_path.to_path_buf()).expect("Unable to open file {path}");
-								let mut data_buffer = Vec::new();
-								rom.read_to_end(&mut data_buffer).unwrap();
-						
-								self.gb.load(Some(data_buffer), Some(rom_path.to_path_buf()));
-							}
-						}
-					});
 				});
 				// Options
 				ui.menu_button("Options", |ui| {
@@ -413,10 +395,6 @@ impl eframe::App for EguiApp {
 						}
 					});
 				});
-				// Exit
-				if ui.button("Exit").clicked() {
-					self.exit_program = true;
-				}
 			});
 		});
 		
@@ -427,8 +405,11 @@ impl eframe::App for EguiApp {
 			let texture_handle = ui.ctx().load_texture("Game screen", image, egui::TextureOptions::NEAREST);
 			let scaled_size = Vec2::new((GB_WIDTH as f32 * self.scale) / ctx.pixels_per_point(),
 										(GB_HEIGHT as f32 * self.scale) / ctx.pixels_per_point());
-			ui.image((texture_handle.id(), scaled_size));
+			ui.centered_and_justified(|ui| {
+				ui.image((texture_handle.id(), scaled_size));
+			});
 		});
+
 
 		// Palette window
 		egui::Window::new("Palette Picker")

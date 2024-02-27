@@ -1,5 +1,5 @@
-use std::fs::OpenOptions;
-use std::io::Write;
+// use std::fs::OpenOptions;
+// use std::io::Write;
 use crate::cartridge::Cartridge;
 use crate::gb_mode::GBMode;
 use crate::input::Input;
@@ -150,13 +150,14 @@ impl MMU {
 					}
 					0xFF01 => self.serial_buffer[0] = value,
 					0xFF02 => {
-						let mut file = OpenOptions::new()
-							.create(true).write(true).append(true)
-							.open(&self.serial_file_path).unwrap();
-						if let Err(e) = write!(file, "{}",
-											   self.serial_buffer[0] as char) {
-							eprintln!("Writing error: {}", e.to_string())
-						}
+						// TODO: Serial
+						// let mut file = OpenOptions::new()
+						// 	.create(true).write(true).append(true)
+						// 	.open(&self.serial_file_path).unwrap();
+						// if let Err(e) = write!(file, "{}",
+						// 					   self.serial_buffer[0] as char) {
+						// 	eprintln!("Writing error: {}", e.to_string())
+						// }
 					},
 					0xFF04 => self.timer.reset_timer(),
 					0xFF05 => self.timer.tima = value,

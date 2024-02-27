@@ -3,19 +3,16 @@
 version = 3
 
 [[package]]
-name = "gb_core"
-version = "0.2.0"
-dependencies = [
- "serde",
- "serde-big-array",
- "serde_json",
-]
-
-[[package]]
 name = "itoa"
 version = "1.0.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b1a46d1a171d865aa5f83f92695765caa047a9b4cbae2cbf37dbd613a793fd4c"
+
+[[package]]
+name = "log"
+version = "0.4.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
 
 [[package]]
 name = "proc-macro2"
@@ -33,6 +30,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5267fca4496028628a95160fc423a33e8b2e6af8a5302579e322e4b520293cae"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "rugby_core"
+version = "1.0.0"
+dependencies = [
+ "log",
+ "serde",
+ "serde-big-array",
+ "serde_json",
 ]
 
 [[package]]

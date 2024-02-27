@@ -1,6 +1,8 @@
 /target
 rugby_core/target
 rugby_desktop/target
+rugby_web/target
+rugby_web/dist
 gameboy-test-roms
 *.gb
 *.txt

@@ -1,0 +1,15 @@
+[frontend]
+default_palette = "Hollow"
+palettes_available = ["Andrade", "Moonlight_GB", "Monochrome", "Nostalgia", "BGB", "Hollow", "Ice_Cream_GB", "Octo", "Mist_GB"]
+
+2Bit_Demichrome = ["#e9efec", "#a0a08b", "#555568", "#211e20"]
+Andrade = ["#e3eec0", "#aeba89", "#5e6745", "#202020"]
+BGB = ["#e0f8d0", "#88c070", "#346856", "#081820"]
+Hollow = ["#fafbf6", "#c6b7be", "#565a75", "#0f0f1b"]
+Mist_GB = ["#c4f0c2", "#5ab9a8", "#1e606e", "#2d1b00"]
+Monochrome = ["#ffffff", "#b8b8b8", "#686868", "#000000"]
+Moonlight_GB = ["#5fc75d", "#36868f", "#203671", "#0f052d"]
+Nostalgia = ["#d0d058", "#a0a840", "#708028", "#405010"]
+Octo = ["#ffcc00", "#ff6600", "#996600", "#662200"]
+Ice_Cream_GB = ["#fff6d3", "#f9a875", "#eb6b6f", "#7c3f58"]
+
