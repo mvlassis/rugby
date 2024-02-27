@@ -3,12 +3,10 @@ use eframe::Storage;
 use egui::{Color32, Frame, InputState, Key, Vec2, ViewportCommand};
 use rfd::AsyncFileDialog;
 use rodio::{buffer::SamplesBuffer, OutputStream, Sink};
-use rodio::source::{SineWave, Source};
 use std::env;
 use std::fs::File;
 use std::io::Read;
 use std::sync::mpsc::{Receiver, Sender};
-use std::time::Duration;
 use std::path::PathBuf;
 
 use rugby_core::color::Color as OutputColor;
@@ -16,12 +14,10 @@ use rugby_core::color::LogicalColor;
 use rugby_core::emulator::Emulator;
 use rugby_core::input::Input;
 use rugby_core::input::EmulatorInput;
-use crate::config_builder::hex_to_rgb;
 
 const GB_WIDTH: usize = 160;
 const GB_HEIGHT: usize = 144;
 const MENUBAR_HEIGHT: f32 = 20.0;
-const RECENT_ROMS_LENGTH: usize = 5;
 
 #[derive(Clone, PartialEq)]
 pub struct Palette {
@@ -31,36 +27,13 @@ pub struct Palette {
 
 pub fn run_app() {
 	eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-	
-	// let sdl_context = sdl2::init().unwrap();
-	// // Setup the audio
-	// let audio_subsystem = sdl_context.audio().expect("Failed to initialize audio");
-	// let desired_spec = AudioSpecDesired {
-	// 	freq: Some(44100),
-	// 	channels: Some(2),
-	// 	samples: Some(1024),
-	// };
-	// let audio_queue: AudioQueue<f32> = audio_subsystem.open_queue(None, &desired_spec)
-	// 	.expect("Failed to create audio queue");
-	// audio_queue.resume();
-	// let callback = Box::new(move |buffer: &[f32]| {
-	// 	while audio_queue.size() > 1024 * 4 * 2 {
-	// 		std::thread::sleep(Duration::from_millis(1));
-	// 	}
-	// 	let _ = audio_queue.queue_audio(buffer);
-	// });
 
 	let (_stream, stream_handle) = OutputStream::try_default().unwrap();
 	let sink = Sink::try_new(&stream_handle).unwrap();
 	sink.play();
 
-	let source = SineWave::new(440.0).take_duration(Duration::from_secs_f32(15.0)).amplify(0.20);
-	sink.append(source);
-
 	let callback = Box::new(move |buffer: &[f32]| {
-		// std::thread::sleep(Duration::from_millis(9));
 		sink.append(SamplesBuffer::new(2, 44100, buffer));
-		log::warn!("Filling buffer...");
 	});
 
 	let palette = Palette {
@@ -73,7 +46,7 @@ pub fn run_app() {
 	
 	let palettes = vec![palette];
 	
-	let scale = Box::new(4.0); // Default scale
+	let scale = Box::new(5.0); // Default scale
 	
 	let web_options = eframe::WebOptions::default();
 	wasm_bindgen_futures::spawn_local(async {
@@ -191,7 +164,8 @@ impl EguiApp {
 			emulator_input.load_state = true;
 		}
 		if input_state.key_down(Key::R) {
-			emulator_input.rewind = true;
+			// Disable rewind in web
+			emulator_input.rewind = false;
 		}
 
 		if self.toggle_mute {
@@ -225,21 +199,7 @@ impl EguiApp {
 		(input, emulator_input)
 	}
 
-	pub fn start_timer(&mut self) {
-		// self.start = self.timer_subsystem.performance_counter();
-	}
-	
-	#[allow(dead_code)]
-	// Prints the framerate
-	pub fn print_fps(&mut self) {
-		// self.end = self.timer_subsystem.performance_counter();
-		// let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
-		// // println!("Seconds: {}", seconds);
-		// let current_fps = 1.0 / seconds;
-		// println!("FPS: {}", current_fps);
-	}
-
-	// Returns a RGB color from the Emulators logical color
+	// Returns a RGB color from the emulator's logical color
 	fn get_color(&self, color: &OutputColor) -> (u8, u8, u8) {
 		let i = self.palette_index;
 		match color {
@@ -265,8 +225,7 @@ impl EguiApp {
 }
 
 impl eframe::App for EguiApp {
-	fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-		// self.start_timer();
+	fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		let mut input = Input::new();
 		let mut emulator_input = EmulatorInput::new();
 
@@ -282,10 +241,12 @@ impl eframe::App for EguiApp {
 		ctx.input(|i| {
 			(input, emulator_input) = self.handle_input(i);
 			if i.viewport().close_requested() {
+				// Save before we exit the program
 				self.gb.save();
 			}
 		});
 
+		// Run the emulator for a frame
 		let screen = match self.emulator_playing {
 			true => self.gb.run(input, Some(emulator_input)).clone(),
 			false => self.gb.get_screen().clone(),
@@ -435,7 +396,6 @@ impl eframe::App for EguiApp {
 					}
 				})
 			});
-		// self.print_fps();
 		ctx.request_repaint();
 	}
 
@@ -444,4 +404,16 @@ impl eframe::App for EguiApp {
 		eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
 	}
 
+}
+
+// Returns a simple #XYZABC hex code to 3 integer values
+pub fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+	if hex.len() != 7 {
+		return None;
+	}
+
+	let r = u8::from_str_radix(&hex[1..3], 16).unwrap();
+	let g = u8::from_str_radix(&hex[3..5], 16).unwrap();
+	let b = u8::from_str_radix(&hex[5..7], 16).unwrap();
+	Some((r, g, b))
 }

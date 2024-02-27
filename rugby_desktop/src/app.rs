@@ -42,7 +42,7 @@ pub fn run_app() {
 	let sdl_context = sdl2::init().unwrap();
 	let timer_subsystem = sdl_context.timer().unwrap();
 	
-	// Setup the audio
+	// Setup the audio and the audio callback
 	let audio_subsystem = sdl_context.audio().expect("Failed to initialize audio");
 	let desired_spec = AudioSpecDesired {
 		freq: Some(44100),
@@ -75,17 +75,17 @@ pub fn run_app() {
 		..Default::default()
 	};
 	
-	let _ = eframe::run_native("Rugby", native_options,
-							   Box::new(|cc| {
-								   let ppp = cc.egui_ctx.native_pixels_per_point();
-								   if let Some(value) = ppp {
-									   cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize(
-										   Vec2::new((GB_WIDTH as f32 * *scale) / value,
-													 (GB_HEIGHT as f32 * *scale) / value + (MENUBAR_HEIGHT + 1.5 * *scale))));
-								   }
-								   let first_arg: Option<String> = env::args().nth(1).clone();
-								   Box::new(EguiApp::new(cc, palettes, scale, timer_subsystem, first_arg, callback))
-							   })
+	let _ = eframe::run_native("Rugby", native_options, Box::new(|cc| {
+		let ppp = cc.egui_ctx.native_pixels_per_point();
+		if let Some(value) = ppp {
+			cc.egui_ctx.send_viewport_cmd(ViewportCommand::InnerSize (
+				Vec2::new((GB_WIDTH as f32 * *scale) / value,
+						  (GB_HEIGHT as f32 * *scale) / value + (MENUBAR_HEIGHT + 1.5 * *scale))));
+		}
+		// First argument corresponds to the ROM's file name
+		let first_arg: Option<String> = env::args().nth(1).clone();
+		Box::new(EguiApp::new(cc, palettes, scale, timer_subsystem, first_arg, callback))
+	})
 	);
 }
 
@@ -106,9 +106,9 @@ pub struct EguiApp {
 	show_palette_window: bool,
 	select_save_state: (bool, usize),
 	select_load_state: (bool, usize),
-	timer_subsystem: TimerSubsystem,
-	start: u64,
-	end: u64,
+	timer_subsystem: TimerSubsystem, // Used to count the FPS
+	start: u64, // Used to count the FPS
+	end: u64, // Used to count the FPS
 	recent_roms: Vec<PathBuf>,
 }
 
@@ -162,6 +162,7 @@ impl EguiApp {
 		}
     }
 
+	// Handle a frame's input and return an object for the emulator
 	fn handle_input(&mut self, input_state: &InputState) -> (Input, EmulatorInput) {
 		let mut input = Input::new();
 		let mut emulator_input = EmulatorInput::new();
@@ -211,12 +212,14 @@ impl EguiApp {
 			emulator_input.exit = true;
 			self.exit_program = false;
 		}
+		// Toggle the 3 layers: background, window, objects
 		for i in 0..=2 {
 			if self.toggle_layers[i] {
 				emulator_input.toggle_layer[i] = true;
 				self.toggle_layers[i] = false;
 			}
 		}
+		// Toggle the 4 audio channels
 		for i in 0..=3 {
 			if self.toggle_channels[i] {
 				emulator_input.toggle_channel[i] = true;
@@ -243,12 +246,11 @@ impl EguiApp {
 	pub fn print_fps(&mut self) {
 		self.end = self.timer_subsystem.performance_counter();
 		let seconds: f64 = (self.end - self.start) as f64 / self.timer_subsystem.performance_frequency() as f64;
-		// println!("Seconds: {}", seconds);
 		let current_fps = 1.0 / seconds;
 		println!("FPS: {}", current_fps);
 	}
 
-	// Returns a RGB color from the Emulators logical color
+	// Returns a RGB color from the emulator's logical color
 	fn get_color(&self, color: &OutputColor) -> (u8, u8, u8) {
 		let i = self.palette_index;
 		match color {
@@ -259,6 +261,7 @@ impl EguiApp {
 				LogicalColor::Black => self.palettes[i].colors[3],
 			},
 			OutputColor::RGB(rgb) => {
+				// Simple and fast conversion from 5 bit to 8 bit (but produceds saturated colors)
 				let r_5bit = (rgb & 0x1F) as u8;
 				let r_8bit = (r_5bit << 3) | (r_5bit >> 2);
 				
@@ -282,10 +285,12 @@ impl eframe::App for EguiApp {
 		ctx.input(|i| {
 			(input, emulator_input) = self.handle_input(i);
 			if i.viewport().close_requested() {
+				// Save before we exit the program
 				self.gb.save();
 			}
 		});
 
+		// Run the emulator for a frame
 		let screen = match self.emulator_playing {
 			true => self.gb.run(input, Some(emulator_input)).clone(),
 			false => self.gb.get_screen().clone(),
@@ -307,6 +312,7 @@ impl eframe::App for EguiApp {
 		egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
 			egui::menu::bar(ui, |ui| {
 				ui.menu_button("File", |ui| {
+					// Open a ROM
 					if ui.button("Open").clicked()  {
 						let file = FileDialog::new()
 							.add_filter("Game Boy", &["gb", "gbc", "sgb", "bin"])
@@ -329,6 +335,7 @@ impl eframe::App for EguiApp {
                         }
 						ui.close_menu();
 					}
+					// Recent Files
 					ui.menu_button("Recent Files", |ui| {
 						for rom_path in self.recent_roms.clone().iter().rev() {
 							if ui.button(rom_path.file_name().unwrap().to_str().unwrap()).clicked() {
@@ -427,7 +434,9 @@ impl eframe::App for EguiApp {
 			let texture_handle = ui.ctx().load_texture("Game screen", image, egui::TextureOptions::NEAREST);
 			let scaled_size = Vec2::new((GB_WIDTH as f32 * self.scale) / ctx.pixels_per_point(),
 										(GB_HEIGHT as f32 * self.scale) / ctx.pixels_per_point());
-			ui.image((texture_handle.id(), scaled_size));
+			ui.centered_and_justified(|ui| {
+				ui.image((texture_handle.id(), scaled_size));
+			});
 		});
 
 		// Palette window
