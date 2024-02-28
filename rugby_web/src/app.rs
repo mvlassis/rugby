@@ -419,7 +419,7 @@ impl eframe::App for EguiApp {
 
 // Fetch a file from the website
 async fn fetch_file(sender: Sender<Vec<u8>>) -> () {
-	let response = reqwest::get("http://mvlassis.com/pocket.gb").await;
+	let response = reqwest::get("http://mvlassis.com:8080/pocket.gb").await;
 	match response {
 		Ok(resp) => {
 			if resp.status().is_success() {
