@@ -36,15 +36,44 @@ pub fn run_app() {
 		sink.append(SamplesBuffer::new(2, 44100, buffer));
 	});
 
-	let palette = Palette {
+	let palette0 = Palette {
 		name: "Ice Cream GB".to_string(),
 		colors: [hex_to_rgb("#fff6d3").unwrap(),
 				 hex_to_rgb("#f9a875").unwrap(),
 				 hex_to_rgb("#eb6b6f").unwrap(),
 				 hex_to_rgb("#7c3f58").unwrap(),]
 	};
+	let palette1 = Palette {
+		name: "Monochrome".to_string(),
+		colors: [hex_to_rgb("#ffffff").unwrap(),
+				 hex_to_rgb("#b8b8b8").unwrap(),
+				 hex_to_rgb("#686868").unwrap(),
+				 hex_to_rgb("#000000").unwrap(),]
+		};
+	let palette2 = Palette {
+		name: "Nostalgia".to_string(),
+		colors: [hex_to_rgb("#d0d058").unwrap(),
+				 hex_to_rgb("#a0a840").unwrap(),
+				 hex_to_rgb("#708028").unwrap(),
+				 hex_to_rgb("#405010").unwrap(),]
+	};
+	let palette3 = Palette {
+		name: "Mist GB".to_string(),
+		colors: [hex_to_rgb("#c4f0c2").unwrap(),
+				 hex_to_rgb("#5ab9a8").unwrap(),
+				 hex_to_rgb("#1e606e").unwrap(),
+				 hex_to_rgb("#2d1b00").unwrap(),]
+	};
+	let palette4 = Palette {
+		name: "BGB".to_string(),
+		colors: [hex_to_rgb("#e0f8d0").unwrap(),
+				 hex_to_rgb("#88c070").unwrap(),
+				 hex_to_rgb("#346856").unwrap(),
+				 hex_to_rgb("#081820").unwrap(),]
+	};
 	
-	let palettes = vec![palette];
+	
+	let palettes = vec![palette0, palette1, palette2, palette3, palette4];
 	
 	let scale = Box::new(5.0); // Default scale
 	
@@ -285,16 +314,25 @@ impl eframe::App for EguiApp {
 						ui.close_menu();
 					}
 				});
-				if ui.button("Load Demo").clicked() {
-					let sender = self.async_channels.0.clone();
-					wasm_bindgen_futures::spawn_local(fetch_file(sender))
-
-					// let path_buf = PathBuf::from("pocket.gb");
-					// let mut rom = File::open(path_buf.clone()).expect("Unable to open file {path}");
-					// let mut data_buffer = Vec::new();
-					// rom.read_to_end(&mut data_buffer).unwrap();
-					// self.gb.load(Some(data_buffer), None);
-				}
+				// Load Demo
+				ui.menu_button("Load Demo", |ui| {
+					if ui.button("Is That a Demo in Your Pocket").clicked() {
+						let rom = include_bytes!("../assets/pocket.gb");
+						self.gb.load(Some(rom.to_vec()), None);
+					}
+					if ui.button("Back to Color").clicked() {
+						let rom = include_bytes!("../assets/back_to_color.gbc");
+						self.gb.load(Some(rom.to_vec()), None);
+					}
+					if ui.button("Armageddon").clicked() {
+						let rom = include_bytes!("../assets/armageddon.gb");
+						self.gb.load(Some(rom.to_vec()), None);
+					}
+					if ui.button("Hi-Colour Demo").clicked() {
+						let rom = include_bytes!("../assets/hicolor.gbc");
+						self.gb.load(Some(rom.to_vec()), None);
+					}
+				});
 				// Options
 				ui.menu_button("Options", |ui| {
 					ui.checkbox(&mut self.emulator_playing, "Pause/Resume");
@@ -415,29 +453,6 @@ impl eframe::App for EguiApp {
 		eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
 	}
 
-}
-
-// Fetch a file from the website
-async fn fetch_file(sender: Sender<Vec<u8>>) -> () {
-	let response = reqwest::get("https://hh3.gbdev.io/static/database-gb/entries/is-that-a-demo-in-your-pocket/pocket.gb").await;
-	match response {
-		Ok(resp) => {
-			if resp.status().is_success() {
-				let content = resp.bytes().await;
-				match content {
-					Ok(data) => {
-						let _ = sender.send(data.to_vec());
-					},
-					Err(_e) => {
-						log::warn!("Error...");
-					}
-				}
-			}
-		},
-		Err(_e) => {
-			log::warn!("Getting pocket.gb file");
-		}
-	}
 }
 
 // Returns a simple #XYZABC hex code to 3 integer values
