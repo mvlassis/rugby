@@ -3,7 +3,6 @@ name = "rugby_web"
 version = "1.0.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 rugby_core = {path = "../rugby_core"}
 config = "0.13"
@@ -23,5 +22,5 @@ winit = "0.26.0"
 
 # Web
 log = "0.4"
-[target.'cfg(target_arch = "wasm32")'.dependencies]
+reqwest = "0.11"
 wasm-bindgen-futures = "0.4"

@@ -222,6 +222,7 @@ impl EguiApp {
 			}
 		}
 	}
+	
 }
 
 impl eframe::App for EguiApp {
@@ -284,6 +285,16 @@ impl eframe::App for EguiApp {
 						ui.close_menu();
 					}
 				});
+				if ui.button("Load Demo").clicked() {
+					let sender = self.async_channels.0.clone();
+					wasm_bindgen_futures::spawn_local(fetch_file(sender))
+
+					// let path_buf = PathBuf::from("pocket.gb");
+					// let mut rom = File::open(path_buf.clone()).expect("Unable to open file {path}");
+					// let mut data_buffer = Vec::new();
+					// rom.read_to_end(&mut data_buffer).unwrap();
+					// self.gb.load(Some(data_buffer), None);
+				}
 				// Options
 				ui.menu_button("Options", |ui| {
 					ui.checkbox(&mut self.emulator_playing, "Pause/Resume");
@@ -398,7 +409,7 @@ impl eframe::App for EguiApp {
 			});
 		ctx.request_repaint();
 	}
-
+	
 	fn save(&mut self, storage: &mut dyn Storage) {
 		eframe::set_value(storage, "recent_roms", &self.recent_roms);
 		eframe::set_value(storage, "palette", &self.palettes[self.palette_index].name);
@@ -406,8 +417,31 @@ impl eframe::App for EguiApp {
 
 }
 
+// Fetch a file from the website
+async fn fetch_file(sender: Sender<Vec<u8>>) -> () {
+	let response = reqwest::get("http://mvlassis.com/pocket.gb").await;
+	match response {
+		Ok(resp) => {
+			if resp.status().is_success() {
+				let content = resp.bytes().await;
+				match content {
+					Ok(data) => {
+						let _ = sender.send(data.to_vec());
+					},
+					Err(_e) => {
+						log::warn!("Error...");
+					}
+				}
+			}
+		},
+		Err(_e) => {
+			log::warn!("Error...");
+		}
+	}
+}
+
 // Returns a simple #XYZABC hex code to 3 integer values
-pub fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
 	if hex.len() != 7 {
 		return None;
 	}
