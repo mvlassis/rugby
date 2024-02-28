@@ -419,7 +419,7 @@ impl eframe::App for EguiApp {
 
 // Fetch a file from the website
 async fn fetch_file(sender: Sender<Vec<u8>>) -> () {
-	let response = reqwest::get("http://mvlassis.com:8080/pocket.gb").await;
+	let response = reqwest::get("https://hh3.gbdev.io/static/database-gb/entries/is-that-a-demo-in-your-pocket/pocket.gb").await;
 	match response {
 		Ok(resp) => {
 			if resp.status().is_success() {
@@ -435,7 +435,7 @@ async fn fetch_file(sender: Sender<Vec<u8>>) -> () {
 			}
 		},
 		Err(_e) => {
-			log::warn!("Error...");
+			log::warn!("Getting pocket.gb file");
 		}
 	}
 }
