@@ -1,5 +1,5 @@
 # Rugby
-Rugby is a Game Boy and Game Boy Color emulator written in Rust. It supports most cartridges and has many features like customizable palettes and rewinding.
+Rugby is a Game Boy and Game Boy Color emulator written in Rust. It supports most cartridges and has many features like customizable palettes and rewinding. It can be compiled to run in most architectures, including the web!
 
 ## Gallery
 <img src="gallery/super-mario-land.png" width = "360"> <img src="gallery/donkey-kong.png" width = "360"> 
@@ -9,19 +9,21 @@ Rugby is a Game Boy and Game Boy Color emulator written in Rust. It supports mos
 
 # Installation and usage:
 ### Build youself
-- Clone the repository, go to the `rugby_desktop` directory and run
+- Clone the repository, go to the `rugby_desktop` directory and run:
 ```
 cd rugby/rugby_desktop
-cargo build --release
+cargo run --release [ROM.gb]
 ```
-The executable will be show in the subfolder `target`.
+If you want to load a ROM file named [ROM] from start, you can can:
+```
+cd rugby/rugby_desktop
+cargo run --release
+```
 
-# Usage
- You can run the executable without any arguments or pass the ROM's name as the first argument:
+You can enable the ```debug``` feature to print execution logs (useful when you want to compare against your emulator). By default the logs are printed to the standard input, so you can easily redirect them to a file like so:
 ```
-# Both ways are valid
-./rugby_desktop
-./rugby_desktop ROM.gb 
+cd rugby/rugby_desktop
+cargo run --features debug [ROM] > log.txt
 ```
 
 # Features
@@ -66,7 +68,14 @@ The executable will be show in the subfolder `target`.
 - [BGB](https://bgb.bircd.org/), used mainly for debugging
 - [Argentum](https://github.com/NightShade256/Argentum)
 - [kevboy](https://github.com/xkevio/kevboy), especially for the parts regarding audio
-- [rboy](https://github.com/mvdnes/rboy),
+- [Gameboy-Emulator](https://github.com/zach1590/gameboy-emulator)
+- [rboy](https://github.com/mvdnes/rboy)
+
+### The demo ROMs that I include in the web version:
+- [Is that a Demo in Your Pocket](https://hh.gbdev.io/game/is-that-a-demo-in-your-pocket)
+- [Back to Color](https://hh.gbdev.io/game/back-to-color)
+- [Armageddon](https://hh.gbdev.io/game/armageddon)
+- [Hi-Colour Demo](https://hh.gbdev.io/game/hi-colour-demo)
 
 # License
 Rugby is licensed under the [MIT license](https://choosealicense.com/licenses/mit/)
