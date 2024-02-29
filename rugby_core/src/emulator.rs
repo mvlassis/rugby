@@ -80,17 +80,26 @@ impl Emulator {
 
 		// Rewind
 		if emulator_input.is_some() && emulator_input.unwrap().rewind {
-			self.pop_rewind_stack();
-			self.bus.ppu.frame_ready = false;
-			std::thread::sleep(Duration::from_millis(REWIND_TIME));
-			return self.bus.ppu.get_screen_buffer();
+			#[cfg(feature = "rewind")]
+			{
+				self.pop_rewind_stack();
+				self.bus.ppu.frame_ready = false;
+				std::thread::sleep(Duration::from_millis(REWIND_TIME));
+				return self.bus.ppu.get_screen_buffer();
+			}
 		}
 		
 		self.bus.mmu.store_input(input);
 		while self.bus.ppu.frame_ready == false {
 			self.cpu.step(&mut self.bus);			
 		}
-		// self.push_rewind_stack();
+		{
+			
+		}
+		#[cfg(feature = "rewind")]
+		{
+			self.push_rewind_stack();
+		}
 		self.bus.ppu.frame_ready = false;
 		self.bus.ppu.get_screen_buffer()
 	}

@@ -3243,7 +3243,6 @@ dependencies = [
 name = "rugby_core"
 version = "1.1.0"
 dependencies = [
- "log",
  "serde",
  "serde-big-array",
  "serde_json",

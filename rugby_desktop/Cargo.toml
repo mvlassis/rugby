@@ -4,7 +4,7 @@ version = "1.1.0"
 edition = "2021"
 
 [dependencies]
-rugby_core = {path = "../rugby_core"}
+rugby_core = {path = "../rugby_core", features = ["rewind"]}
 config = "0.13"
 sdl2 = { version = ">=0.35"}
 eframe = { version = ">=0.24", features = ["persistence"] }
