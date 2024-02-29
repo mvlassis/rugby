@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::process;
 use std::path::PathBuf;
+#[cfg(feature = "rewind")]
 use std::time::Duration;
 
 use crate::bus::Bus;
@@ -15,6 +16,7 @@ use crate::ppu::GB_HEIGHT;
 use crate::save_state::EmulatorState;
 
 const REWIND_STACK_CAPACITY: usize = 300; // 60 equals about 1 second
+#[cfg(feature = "rewind")]
 const REWIND_TIME: u64 = 5; 
 
 pub struct Emulator {
