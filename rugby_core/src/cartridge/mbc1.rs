@@ -107,6 +107,9 @@ impl Cartridge for MBC1 {
 
             }
             0xA000..=0xBFFF => {
+				if self.ram.len() == 0 {
+					return 0xFF;
+				}
                 let address = address - 0xA000;
                 if self.ram_enable {
                     if self.banking_mode == BankingMode::Advanced &&
@@ -152,7 +155,7 @@ impl Cartridge for MBC1 {
                 }
             }
             0xA000..=0xBFFF => {
-                if self.ram_enable {
+                if self.ram.len() > 0 && self.ram_enable {
 					if self.banking_mode == BankingMode::Advanced &&
 						self.ram.len() / RAM_BANK_SIZE > 1 {
 							self.ram[address - 0xA000 + (self.ram_bank_number) * RAM_BANK_SIZE] = value;

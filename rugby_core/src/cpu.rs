@@ -17,6 +17,7 @@ pub struct CPU {
 
 	ime_scheduled: bool,
 	halt_mode: bool,
+	halt_bug: bool,
 	rtc_oscillator: u64,
 
 	// Required for Gameboy Color emulation
@@ -37,6 +38,7 @@ impl CPU {
 			lookup_table2,
 			ime_scheduled: false,
 			halt_mode: false,
+			halt_bug: false,
 			rtc_oscillator: 0,
 
 			gb_mode: GBMode::DMG,
@@ -53,33 +55,45 @@ impl CPU {
 							  0xFF, 0xFE],
 		};
 		self.pc = 0x100;
+		self.ime = 0;
+		self.halt_mode = false;
+		self.halt_bug = false;
 		self.build_lookup_tables();
 	}
 
 	#[allow(dead_code)]
-	// TODO Remove
 	pub fn print_state(&self, bus: &mut Bus) {
 		let byte0 = bus.get_byte(self.pc);
 		let byte1 = bus.get_byte(self.pc+1);
-		let byte2 = bus.get_byte(self.pc+2);
-		let byte3 = bus.get_byte(self.pc+3);
-		log::warn!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+		// let byte2 = bus.get_byte(self.pc+2);
+		// let byte3 = bus.get_byte(self.pc+3);
+		// println!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+		// 		 self.cpu_registers[0],
+		// 		 self.cpu_registers[1], self.cpu_registers[2], self.cpu_registers[3],
+		// 		 self.cpu_registers[4], self.cpu_registers[5], self.cpu_registers[6],
+		// 		 self.cpu_registers[7], self.cpu_registers[8], self.cpu_registers[9],
+		// 		 self.pc, byte0, byte1, byte2, byte3);
+		println!("af: {:02X}{:02X}, bc: {:02X}{:02X}, de: {:02X}{:02X}, hl: {:02X}{:02X}, pc: {:04X}, sp: {:02X}{:02X}, opcode: {:02X} {:02X}",
 				 self.cpu_registers[0],
 				 self.cpu_registers[1], self.cpu_registers[2], self.cpu_registers[3],
 				 self.cpu_registers[4], self.cpu_registers[5], self.cpu_registers[6],
-				 self.cpu_registers[7], self.cpu_registers[8], self.cpu_registers[9],
-				 self.pc, byte0, byte1, byte2, byte3);
+				 self.cpu_registers[7], self.pc, self.cpu_registers[8], self.cpu_registers[9],
+				 byte0, byte1);
 	}
 	
 	// Fetches and executes the next instruction 
 	pub fn step(&mut self, bus: &mut Bus) {
-
+		let opcode = bus.get_byte(self.pc);
+		if self.halt_bug {
+			// If the halt_bug occurs, then don't increment the pc
+			self.pc -= 1;
+			self.halt_bug = false;
+		}
 		if self.halt_mode {
 			// If in halt mode, don't fetch the next opcode, just tick the bus
 			self.tick(bus);
 		}
 		else {
-			let opcode = bus.get_byte(self.pc);
 			// self.print_state(bus);
 			if opcode == EXPANDED_INSTRUCTION_OPCODE {
 				self.pc += 1;
@@ -117,10 +131,10 @@ impl CPU {
 
 	// Handle interrupts
 	pub fn handle_interrupts(&mut self, bus: &mut Bus) {
-		let ie = bus.get_byte(0xFFFF);
-		let mut if_register = bus.get_byte(0xFF0F);
+		let ie = bus.get_byte(0xFFFF) & 0x1F;
+		let mut if_register = bus.get_byte(0xFF0F) & 0x1F;
 		if self.ime == 1 {
-			if ie & if_register != 0 {
+			if (ie & if_register) != 0 {
 				if self.halt_mode {
 					self.halt_mode = false;
 				}
@@ -144,7 +158,6 @@ impl CPU {
 			}
 		}
 		// The CPU will exit halt mode even if IME is set to 0
-		// TODO: Halt bug
 		else if ie & if_register != 0 {
 			if self.halt_mode {
 				self.halt_mode = false;
@@ -255,7 +268,7 @@ impl CPU {
 		self.tick(bus);
 		let value = ((msb as u16) << 8) | lsb as u16;
 		self.set_double_register("SP", (sp_value+2) as u16);
-		return value;
+		value
 	}
 
 	// Set a bit in a u8

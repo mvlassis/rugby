@@ -57,7 +57,7 @@ pub fn load(data_buffer_opt: Option<Vec<u8>>, path_buf: Option<PathBuf>) -> (Box
 	};
 	
     // println!("Cartridge type: {:02X}", cartridge_type);
-    // println!("ROM size: {}", rom_size);
+    // println!("ROM size: {}", _rom_size);
     // println!("Number of RAM banks: {}", ram_banks);
 	// println!("GBMode: {:?}", gb_mode);
     let cartridge: Box<dyn Cartridge> = match cartridge_type {

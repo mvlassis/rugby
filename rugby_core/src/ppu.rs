@@ -125,7 +125,13 @@ impl PPU {
     pub fn initialize(&mut self, gb_mode: GBMode) {
         self.lcdc = 0x91;
         self.stat = 0x85;
+		self.scy = 0;
+		self.scx = 0;
+		self.ly = 0;
+		self.lyc = 0;
         self.bgp = 0xFC;
+		self.wy = 0;
+		self.wx = 0;
 		self.vbk = 0;
 
 		self.gb_mode = gb_mode;

@@ -2787,10 +2787,18 @@ impl CPU {
 	fn opcode_nop(&mut self, _bus: &mut Bus) {
 	}
 
-	// HALT: Halt in low pwer until interrupt occurs
+	// HALT: Halt in low power until interrupt occurs
 	// TODO
 	fn opcode_halt(&mut self, _bus: &mut Bus) {
-		self.halt_mode = true;
+		let ie = _bus.get_byte(0xFFFF) & 0x1F;
+		let if_register = _bus.get_byte(0xFF0F) & 0x1F;
+		if self.ime == 0 {
+			if ie & if_register != 0 {
+				self.halt_bug = true;
+			}
+		} else {
+			self.halt_mode = true;
+		}
 	}
 
 	// STOP: Low power standby mode
@@ -2964,7 +2972,7 @@ impl CPU {
 
 	// RST n: Call specific addresses
 	fn opcode_rst_n(&mut self, bus: &mut Bus, n: u8) {
-		self.tick(bus);
+		self.tick(bus); 
 		self.push_stack(bus, self.pc);
 		self.pc = n as u16;
 	}

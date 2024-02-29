@@ -57,6 +57,7 @@ impl MMU {
 		self.io_registers[0x04] = 0xAB; // DIV
 		self.io_registers[0x07] = 0xF8; // TAC
 		self.io_registers[0x0F] = 0xE1; // IF
+		self.ie_register = 0; // IE
 
 		self.gb_mode = gb_mode;
 		self.svbk = 0xF8;
@@ -111,11 +112,12 @@ impl MMU {
 					0xFF06 => self.timer.tma,
 					0xFF07 => self.timer.tac,
 					0xFF70 => self.svbk,
+					0xFF0F => self.io_registers[0x0F] | 0xE0,
 					_ => self.io_registers[address as usize - 0xFF00],
 				}
 			},
 			0xFF80..=0xFFFE => self.hram[address as usize - 0xFF80],
-			0xFFFF => self.ie_register,
+			0xFFFF => self.ie_register | 0xE0,
 			_ => panic!("MMU::get_byte(): Out of memory at address: {:04X}", address),
 		}
 	}
@@ -202,6 +204,7 @@ impl MMU {
 			input_byte = MMU::set_bit(input_byte, 2, MMU::reverse_flag(self.input.select));
 			input_byte = MMU::set_bit(input_byte, 3, MMU::reverse_flag(self.input.start));
 		}
+		input_byte = input_byte | 0b11000000;
 		self.io_registers[0x00] = input_byte;
 
 		// Check whether a p1 interrupt has occured
