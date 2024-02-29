@@ -2590,9 +2590,8 @@ dependencies = [
 
 [[package]]
 name = "rugby_core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
- "log",
  "serde",
  "serde-big-array",
  "serde_json",
@@ -2600,7 +2599,7 @@ dependencies = [
 
 [[package]]
 name = "rugby_desktop"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "config",
  "eframe",
@@ -2609,7 +2608,6 @@ dependencies = [
  "rfd",
  "rugby_core",
  "sdl2",
- "spin_sleep",
  "winit 0.26.1",
 ]
 
@@ -2889,16 +2887,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7916fc008ca5542385b89a3d3ce689953c143e9304a9bf8beec1de48994c0d"
 dependencies = [
  "libc",
- "winapi",
-]
-
-[[package]]
-name = "spin_sleep"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cafa7900db085f4354dbc7025e25d7a839a14360ea13b5fc4fd717f2d3b23134"
-dependencies = [
- "once_cell",
  "winapi",
 ]
 

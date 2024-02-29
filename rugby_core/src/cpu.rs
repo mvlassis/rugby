@@ -61,29 +61,27 @@ impl CPU {
 		self.build_lookup_tables();
 	}
 
-	#[allow(dead_code)]
+	#[cfg(feature = "debug")]
 	pub fn print_state(&self, bus: &mut Bus) {
 		let byte0 = bus.get_byte(self.pc);
 		let byte1 = bus.get_byte(self.pc+1);
-		// let byte2 = bus.get_byte(self.pc+2);
-		// let byte3 = bus.get_byte(self.pc+3);
-		// println!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
-		// 		 self.cpu_registers[0],
-		// 		 self.cpu_registers[1], self.cpu_registers[2], self.cpu_registers[3],
-		// 		 self.cpu_registers[4], self.cpu_registers[5], self.cpu_registers[6],
-		// 		 self.cpu_registers[7], self.cpu_registers[8], self.cpu_registers[9],
-		// 		 self.pc, byte0, byte1, byte2, byte3);
-		println!("af: {:02X}{:02X}, bc: {:02X}{:02X}, de: {:02X}{:02X}, hl: {:02X}{:02X}, pc: {:04X}, sp: {:02X}{:02X}, opcode: {:02X} {:02X}",
+		let byte2 = bus.get_byte(self.pc+2);
+		let byte3 = bus.get_byte(self.pc+3);
+		println!("A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X}{:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
 				 self.cpu_registers[0],
 				 self.cpu_registers[1], self.cpu_registers[2], self.cpu_registers[3],
 				 self.cpu_registers[4], self.cpu_registers[5], self.cpu_registers[6],
-				 self.cpu_registers[7], self.pc, self.cpu_registers[8], self.cpu_registers[9],
-				 byte0, byte1);
+				 self.cpu_registers[7], self.cpu_registers[8], self.cpu_registers[9],
+				 self.pc, byte0, byte1, byte2, byte3);
 	}
 	
 	// Fetches and executes the next instruction 
 	pub fn step(&mut self, bus: &mut Bus) {
 		let opcode = bus.get_byte(self.pc);
+		#[cfg(feature = "debug")]
+		{
+			self.print_state(bus);
+		}
 		if self.halt_bug {
 			// If the halt_bug occurs, then don't increment the pc
 			self.pc -= 1;
@@ -94,7 +92,6 @@ impl CPU {
 			self.tick(bus);
 		}
 		else {
-			// self.print_state(bus);
 			if opcode == EXPANDED_INSTRUCTION_OPCODE {
 				self.pc += 1;
 				self.tick(bus);
