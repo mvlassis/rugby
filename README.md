@@ -9,21 +9,27 @@ Rugby is a Game Boy and Game Boy Color emulator written in Rust. It supports mos
 
 # Installation and usage:
 ### Build youself
-- Clone the repository, go to the `rugby_desktop` directory and run:
+- Clone the repository, and then go to the `rugby_desktop` directory:
 ```
+git clone https://github.com/mvlassis/rugby.git
 cd rugby/rugby_desktop
-cargo run --release [ROM.gb]
+
 ```
-If you want to load a ROM file named [ROM] from start, you can can:
+Then simply call ```cargo run --release```. You can give the program a ROM to run, or start the program and load the ROM later:
 ```
-cd rugby/rugby_desktop
+# Both ways are OK
+cargo run --release [ROM]
 cargo run --release
+```
+You can enable the ```rewind``` feature, I made it optional because it is very resource intensive and can slow down the program:
+```
+cargo run --release --features rewind 
 ```
 
 You can enable the ```debug``` feature to print execution logs (useful when you want to compare against your emulator). By default the logs are printed to the standard input, so you can easily redirect them to a file like so:
 ```
 cd rugby/rugby_desktop
-cargo run --features debug [ROM] > log.txt
+cargo run --release --features debug [ROM] > log.txt
 ```
 
 # Features
@@ -37,7 +43,7 @@ cargo run --features debug [ROM] > log.txt
 - Enable/disable individual display layers.
 - Multiple save states.
 - Rewind for up to 5 seconds.
-- And a simple UI to show all of the above!
+- And an intuitive UI to show all of the above!
 
 # Controls
 | Key | Action |
@@ -73,7 +79,7 @@ cargo run --features debug [ROM] > log.txt
 
 ### The demo ROMs that I include in the web version:
 - [Is that a Demo in Your Pocket](https://hh.gbdev.io/game/is-that-a-demo-in-your-pocket)
-- [Back to Color](https://hh.gbdev.io/game/back-to-color)
+- [Back to Colour](https://hh.gbdev.io/game/back-to-color)
 - [Armageddon](https://hh.gbdev.io/game/armageddon)
 - [Hi-Colour Demo](https://hh.gbdev.io/game/hi-colour-demo)
 
